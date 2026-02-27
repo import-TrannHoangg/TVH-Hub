@@ -12,6 +12,19 @@ local Settings = {
     Translator = true;
 }
 
+task.spawn(function()
+    while task.wait(1) do
+        if game:GetService("Players").LocalPlayer.Team == nil then
+            local teamName = (Settings.JoinTeam == "Marines") and "濃 Marines" or "濃 Pirates"
+            pcall(function()
+                game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("SetTeam", teamName)
+            end)
+        else
+            break
+        end
+    end
+end)
+
 local State = {
     MobileMode = false,
     HiddenIsland = false,
@@ -87,33 +100,18 @@ Instance.new("UICorner", AvatarLogo).CornerRadius = UDim.new(1, 0)
 local IconStroke = Instance.new("UIStroke", Icon)
 IconStroke.Thickness = 3
 IconStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+IconStroke.LineJoinMode = Enum.LineJoinMode.Round
+IconStroke.Color = Color3.fromRGB(0, 255, 255)
 
 local IconGradient = Instance.new("UIGradient", IconStroke)
 IconGradient.Color = ColorSequence.new({
     ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 255, 255)),
-    ColorSequenceKeypoint.new(0.45, Color3.fromRGB(225, 255, 255)),
-    ColorSequenceKeypoint.new(0.55, Color3.fromRGB(225, 255, 255)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(225, 255, 255)),
     ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 255, 255))
 })
 
 local function AnimateIcon()
-    TweenService:Create(IconGradient, TweenInfo.new(3, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1), {
-        Rotation = 360
-    }):Play()
-
-
-    task.spawn(function()
-        while true do
-            TweenService:Create(IconGradient, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-                Offset = Vector2.new(0.1, 0)
-            }):Play()
-            task.wait(1.5)
-            TweenService:Create(IconGradient, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-                Offset = Vector2.new(-0.1, 0)
-            }):Play()
-            task.wait(1.5)
-        end
-    end)
+    game:GetService("TweenService"):Create(IconGradient, TweenInfo.new(2, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1), {Rotation = 360}):Play()
 end
 AnimateIcon()
 
@@ -373,7 +371,7 @@ local function CreateWeaponDropdown(parent, text, y)
 
         btn.MouseButton1Click:Connect(function()
             State.SelectWeapon = v
-            label.Text = text .. ": " .. v
+            label.Text = text .. " :  " .. v
             isOpened = false
             TweenService:Create(container, TweenInfo.new(0.3), {Size = UDim2.new(1, 0, 0, 0)}):Play()
             toggleBtn.Text = "v"
@@ -1659,15 +1657,12 @@ function AttackNoCoolDown()
     if not AC or not AC.attack then return end
 
     pcall(function()
-        local bladehit = require(game.ReplicatedStorage.CombatFramework.RigLib).getBladeHits(
-            plr.Character,
-            {plr.Character.HumanoidRootPart},
-            100
-        )
+        local RigLib = require(game.ReplicatedStorage.CombatFramework.RigLib)
+        local bladehit = RigLib.getBladeHits(plr.Character, {plr.Character.HumanoidRootPart}, 100)
 
         local targets = {}
         for _, v in pairs(bladehit) do
-            if v.Parent:FindFirstChild("HumanoidRootPart") then
+            if v.Parent:FindFirstChild("HumanoidRootPart") and v.Parent.Humanoid.Health > 0 then
                 table.insert(targets, v.Parent.HumanoidRootPart)
             end
         end
@@ -1679,38 +1674,37 @@ function AttackNoCoolDown()
             local u10 = debug.getupvalue(AC.attack, 7)
             
             local u12 = (u8 * 798405 + u7 * 727595) % u9
-            u12 = (u12 * u9 + (u7 * 798405)) % 1099511627776
+            local u13 = u7 * 798405
+            u12 = (u12 * u9 + u13) % 1099511627776
+            u8 = math.floor(u12 / u9)
+            u7 = u12 - u8 * u9
+            u10 = u10 + 1
             
-            debug.setupvalue(AC.attack, 5, math.floor(u12 / u9))
-            debug.setupvalue(AC.attack, 7, u10 + 1)
+            debug.setupvalue(AC.attack, 5, u8)
+            debug.setupvalue(AC.attack, 4, u7)
+            debug.setupvalue(AC.attack, 7, u10)
 
-            pcall(function()
+            spawn(function()
                 for _, anim in pairs(AC.animator.anims.basic) do anim:Play() end
             end)
             
-            game.ReplicatedStorage.RigControllerEvent:FireServer("hit", targets, 1, "")
+            game.ReplicatedStorage.Remotes.Validator:FireServer(math.floor(u12 / 1099511627776 * 16777215), u10)
+            game:GetService("ReplicatedStorage").RigControllerEvent:FireServer("hit", targets, 1, "")
         end
     end)
 end
 
 function EquipTool()
-    local weaponType = State.SelectWeapon or "Melee"
-    local character = player.Character
+    local character = plr.Character
     if not character or not character:FindFirstChild("Humanoid") then return end
 
-    for _, tool in pairs(character:GetChildren()) do
-        if tool:IsA("Tool") and (tool.ToolTip == weaponType or tool:FindFirstChild("Level")) then
-            return 
-        end
-    end
+    if character:FindFirstChildOfClass("Tool") then return end
 
-    for _, tool in pairs(player.Backpack:GetChildren()) do
+    local weaponType = State.SelectWeapon or "Melee"
+
+    for _, tool in pairs(plr.Backpack:GetChildren()) do
         if tool:IsA("Tool") then
-            if (weaponType == "Melee" and tool:FindFirstChild("Melee")) or 
-               (weaponType == "Sword" and tool:FindFirstChild("Sword")) or
-               (weaponType == "Blox Fruit" and (tool.ToolTip == "Blox Fruit" or tool:FindFirstChild("Fruit"))) or
-               tool.Name:find(weaponType) then
-                
+            if tool.ToolTip == weaponType or string.find(tool.Name, weaponType) then
                 character.Humanoid:EquipTool(tool)
                 break
             end
@@ -1722,20 +1716,38 @@ function BringMob(targetMob, pos)
     for _, v in pairs(workspace.Enemies:GetChildren()) do
         if v.Name == targetMob and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 then
             if (v.HumanoidRootPart.Position - pos.Position).Magnitude < 300 then
-                v.HumanoidRootPart.CFrame = pos
                 v.HumanoidRootPart.CanCollide = false
+                v.HumanoidRootPart.CFrame = pos
                 v.Humanoid.WalkSpeed = 0
+                for _, part in pairs(v:GetChildren()) do
+                    if part:IsA("BasePart") then part.CanCollide = false end
+                end
             end
         end
     end
 end
+
+local State = _G.State or {}
+local plr = game.Players.LocalPlayer
+
+local function GetDistance(pos)
+    return (plr.Character.HumanoidRootPart.Position - pos).Magnitude
+end
+
+game:GetService("RunService").Stepped:Connect(function()
+    if State.AutoFarmLevel and plr.Character then
+        for _, v in pairs(plr.Character:GetDescendants()) do
+            if v:IsA("BasePart") then v.CanCollide = false end
+        end
+    end
+end)
 
 CreateLabel(TabFarm, "Tự Động Farm", 5) 
 
 CreateToggle(TabFarm, "Tự Động Farm Level", 35, "AutoFarmLevel", function(state)
     State.AutoFarmLevel = state
     if state then
-        spawn(function()
+        task.spawn(function()
             while State.AutoFarmLevel do
                 pcall(function()
                     CheckLevel()
@@ -1743,83 +1755,46 @@ CreateToggle(TabFarm, "Tự Động Farm Level", 35, "AutoFarmLevel", function(s
                     local player = game.Players.LocalPlayer
                     local questUI = player.PlayerGui.Main.Quest
 
-                    if not questUI.Visible or not string.find(
-                        questUI.Container.QuestTitle.Title.Text,
-                        NameMon
-                    ) then
-
+                    if not questUI.Visible or not string.find(questUI.Container.QuestTitle.Title.Text, NameMon) then
                         game.ReplicatedStorage.Remotes.CommF_:InvokeServer("AbandonQuest")
-
                         Tween(CFrameQ)
-
-                        if (player.Character.HumanoidRootPart.Position - CFrameQ.Position).Magnitude < 5 then
-                            game.ReplicatedStorage.Remotes.CommF_:InvokeServer(
-                                "StartQuest", NameQuest, QuestLv
-                            )
+                        if (player.Character.HumanoidRootPart.Position - CFrameQ.Position).Magnitude < 15 then
+                            game.ReplicatedStorage.Remotes.CommF_:InvokeServer("StartQuest", NameQuest, QuestLv)
                         end
-
                     else
-                        for _, mob in pairs(workspace.Enemies:GetChildren()) do
-                            if mob.Name == NameMon
-                            and mob:FindFirstChild("Humanoid")
-                            and mob.Humanoid.Health > 0 then
-
-                                repeat
-                                    task.wait()
-
-                                    EquipTool()
-                                    AutoHaki()
-                                    Tween(mob.HumanoidRootPart.CFrame * CFrame.new(0, 40, 0))
-                                    BringMob(NameMon, mob.HumanoidRootPart.CFrame)
-                                    AttackNoCoolDown()
-
-                                until not State.AutoFarmLevel
-                                or mob.Humanoid.Health <= 0
-                                or not mob.Parent
-
+                        local TargetMob = nil
+                        for _, v in pairs(workspace.Enemies:GetChildren()) do
+                            if v.Name == NameMon and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 then
+                                TargetMob = v
+                                break
                             end
                         end
 
-                        for _, spawnPoint in pairs(workspace._WorldOrigin.EnemySpawns:GetChildren()) do
-                            if string.find(spawnPoint.Name, NameMon) then
-                                Tween(spawnPoint.CFrame)
+                        if TargetMob then
+                            EquipTool()
+                            
+                            local farmPos = TargetMob.HumanoidRootPart.CFrame * CFrame.new(0, 20, 0)
+                            Tween(farmPos)
+
+                            BringMob(NameMon, TargetMob.HumanoidRootPart.CFrame)
+                            AttackNoCoolDown()
+                        else
+                            for _, spawnPoint in pairs(workspace._WorldOrigin.EnemySpawns:GetChildren()) do
+                                if string.find(spawnPoint.Name, NameMon) then
+                                    Tween(spawnPoint.CFrame * CFrame.new(0, 30, 0))
+                                    break
+                                end
                             end
                         end
                     end
                 end)
-
-                task.wait(.3)
+                task.wait()
             end
         end)
     end
 end)
 
-CreateToggle(TabFarm, "Tự Động Farm Boss", 85, "AutoFarmBoss", function(state)
-    State.AutoBoss = state
-    if state then
-        spawn(function()
-            while State.AutoBoss do
-                pcall(function()
-                    CheckBossQuest() 
-                    
-                    local bossInstance = workspace.Enemies:FindFirstChild(BossMon) or workspace.Bosses:FindFirstChild(BossMon)
-                    
-                    if bossInstance and bossInstance:FindFirstChild("Humanoid") and bossInstance.Humanoid.Health > 0 then
-                        EquipTool()
-                        AutoHaki()
-                        AttackNoCoolDown()
-                        Tween(bossInstance.HumanoidRootPart.CFrame * CFrame.new(0, 40, 0))
-                    else
-                        Tween(CFrameBoss)
-                    end
-                end)
-                task.wait(0.5)
-            end
-        end)
-    end
-end)
-
-CreateLabel(TabFarm, "Cài Đặt", 5) 
+CreateLabel(TabSettings, "Cài Đặt", 5) 
 CreateWeaponDropdown(TabSettings, "Chọn Vũ Khí", 35)
 
 CreateToggle(TabSettings, "FPS Boost", 85, "FPSBoost", function(state)
