@@ -16,6 +16,7 @@ local State = {
     AntiBan = true,
     StealthMode = true,
     AutoFarmLevel = false,
+    AutoFarmBoss = false,
     SelectWeapon = "Melee"
 }
 
@@ -202,13 +203,31 @@ local function CreateTab(name, order)
     return page
 end
 
+function CreateLabel(parent, text, yPos)
+    local Label = Instance.new("TextLabel")
+    Label.Parent = parent
+    Label.BackgroundTransparency = 1
+    Label.Position = UDim2.new(0, 10, 0, yPos)
+    Label.Size = UDim2.new(0, 200, 0, 20)
+    Label.Font = Enum.Font.SourceSansBold
+    Label.Text = text
+    Label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Label.TextSize = 14
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    return Label
+end
+
 local Toggles = {}
 
 local function CreateToggle(parent, text, y, key, callback)
+    if State[key] == nil then State[key] = false end
+
     local frame = Instance.new("Frame", parent)
+    frame.Name = "Toggle " .. text
     frame.Size = UDim2.new(1, -10, 0, 45)
     frame.Position = UDim2.new(0, 5, 0, y)
     frame.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+    frame.BorderSizePixel = 0
     Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 6)
 
     local label = Instance.new("TextLabel", frame)
@@ -216,7 +235,7 @@ local function CreateToggle(parent, text, y, key, callback)
     label.Position = UDim2.new(0, 15, 0, 0)
     label.Text = text
     label.TextColor3 = Color3.fromRGB(220, 220, 220)
-    label.Font = Enum.Font.Gotham
+    label.Font = Enum.Font.GothamBold
     label.TextSize = 14
     label.TextXAlignment = Enum.TextXAlignment.Left
     label.BackgroundTransparency = 1
@@ -247,7 +266,7 @@ local function CreateToggle(parent, text, y, key, callback)
         State[key] = not State[key]
         UpdateVisual(State[key])
         if callback then callback(State[key]) end
-        SaveConfig()
+            pcall(function() SaveConfig() end) 
     end)
 
     Toggles[key] = {Update = UpdateVisual, Callback = callback}
@@ -1680,12 +1699,14 @@ function EquipTool()
     end
 end
 
-CreateToggle(TabFarm, "Tự Động Farm Level", 10, "AutoFarmLevel", function(state)
+CreateLabel(TabFarm, "Tự Động Farm", 5) 
+
+CreateToggle(TabFarm, "Tự Động Farm Level", 35, "AutoFarmLevel", function(state)
+    State.AutoFarmLevel = state
     if state then
         spawn(function()
             while State.AutoFarmLevel do
                 pcall(function()
-
                     CheckLevel()
 
                     local player = game.Players.LocalPlayer
@@ -1742,9 +1763,35 @@ CreateToggle(TabFarm, "Tự Động Farm Level", 10, "AutoFarmLevel", function(s
     end
 end)
 
-CreateWeaponDropdown(TabSettings, "Chọn Vũ Khí", 10)
+CreateToggle(TabFarm, "Tự Động Farm Boss", 85, "AutoFarmBoss", function(state)
+    State.AutoBoss = state
+    if state then
+        spawn(function()
+            while State.AutoBoss do
+                pcall(function()
+                    CheckBossQuest() 
+                    
+                    local bossInstance = workspace.Enemies:FindFirstChild(BossMon) or workspace.Bosses:FindFirstChild(BossMon)
+                    
+                    if bossInstance and bossInstance:FindFirstChild("Humanoid") and bossInstance.Humanoid.Health > 0 then
+                        EquipTool()
+                        AutoHaki()
+                        AttackNoCoolDown()
+                        Tween(bossInstance.HumanoidRootPart.CFrame * CFrame.new(0, 20, 0))
+                    else
+                        Tween(CFrameBoss)
+                    end
+                end)
+                task.wait(0.5)
+            end
+        end)
+    end
+end)
 
-CreateToggle(TabSettings, "FPS Boost", 60, "FPSBoost", function(state)
+CreateLabel(TabFarm, "Cài Đặt", 5) 
+CreateWeaponDropdown(TabSettings, "Chọn Vũ Khí", 35)
+
+CreateToggle(TabSettings, "FPS Boost", 85, "FPSBoost", function(state)
     if state then
         Lighting.GlobalShadows = false
         Lighting.FogEnd = 9e9
@@ -1759,7 +1806,7 @@ CreateToggle(TabSettings, "FPS Boost", 60, "FPSBoost", function(state)
     end
 end)
 
-CreateToggle(TabSettings, "Ẩn Đảo Xa", 110, "HiddenIsland", function(state)
+CreateToggle(TabSettings, "Ẩn Đảo Xa", 115, "HiddenIsland", function(state)
     task.spawn(function()
         while State.HiddenIsland do
             local char = player.Character
@@ -1783,7 +1830,7 @@ CreateToggle(TabSettings, "Ẩn Đảo Xa", 110, "HiddenIsland", function(state)
     end)
 end)
 
-CreateToggle(TabSettings, "Fix Lag Trên Điện Thoại", 160, "MobileMode", function(state)
+CreateToggle(TabSettings, "Fix Lag Trên Điện Thoại", 155, "MobileMode", function(state)
     if state then
         Lighting.GlobalShadows = false
         Lighting.Brightness = 0
@@ -1802,7 +1849,7 @@ CreateToggle(TabSettings, "Fix Lag Trên Điện Thoại", 160, "MobileMode", fu
     end
 end)
 
-CreateToggle(TabSettings, "Fix Lag Tối Ưu", 210, "FixLagMode", function(state)
+CreateToggle(TabSettings, "Fix Lag Tối Ưu", 195, "FixLagMode", function(state)
     task.spawn(function()
         while State.FixLagMode do
             local fps = math.floor(1 / RunService.RenderStepped:Wait())
@@ -1821,7 +1868,7 @@ end)
 
 local AntiBanConnections = {}
 
-CreateToggle(TabSettings, "Anti Ban", 260, "AntiBan", function(state)
+CreateToggle(TabSettings, "Anti Ban", 235, "AntiBan", function(state)
     if not State.AntiBan then
         for _, conn in pairs(AntiBanConnections) do
             if conn then conn:Disconnect() end
@@ -1863,7 +1910,7 @@ CreateToggle(TabSettings, "Anti Ban", 260, "AntiBan", function(state)
     end)
 end)
 
-CreateToggle(TabSettings, "Chống Bị Phát Hiện Dùng Script", 310, "StealthMode", function(state)
+CreateToggle(TabSettings, "Chống Bị Phát Hiện Dùng Script", 285, "StealthMode", function(state)
     if not State.StealthMode then
         for _, gui in pairs(PlayerGui:GetChildren()) do
             if gui:IsA("ScreenGui") then
@@ -1873,7 +1920,7 @@ CreateToggle(TabSettings, "Chống Bị Phát Hiện Dùng Script", 310, "Stealt
     end
 end)
 
-CreateToggle(TabSettings, "Anti AFK", 360, "AntiAFK", function(state)
+CreateToggle(TabSettings, "Anti AFK", 315, "AntiAFK", function(state)
     if not state then return end
 
     local vu = game:GetService("VirtualUser")
