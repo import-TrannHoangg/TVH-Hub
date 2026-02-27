@@ -17,7 +17,7 @@ local State = {
     StealthMode = true,
     AutoFarmLevel = false,
     ShopTween = false
-    SelectedWeapon = SelectedWeapon or "Melee"
+    SelectedWeapon = "Melee"
 }
 
 local KnownAdmins = {
