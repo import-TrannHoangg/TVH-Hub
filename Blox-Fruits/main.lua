@@ -7,6 +7,11 @@ local HttpService = game:GetService("HttpService")
 local UIS = game:GetService("UserInputService")
 local player = Players.LocalPlayer
 
+local Settings = {
+    JoinTeam = "Pirates";
+    Translator = true;
+}
+
 local State = {
     MobileMode = false,
     HiddenIsland = false,
@@ -59,6 +64,7 @@ end
 LoadConfig()
 
 local PlayerGui = player:WaitForChild("PlayerGui")
+local TweenService = game:GetService("TweenService")
 
 local IconGui = Instance.new("ScreenGui", PlayerGui)
 IconGui.Name = "TVH_IconGui"
@@ -79,8 +85,37 @@ AvatarLogo.ScaleType = Enum.ScaleType.Crop
 Instance.new("UICorner", AvatarLogo).CornerRadius = UDim.new(1, 0)
 
 local IconStroke = Instance.new("UIStroke", Icon)
-IconStroke.Thickness = 2
-IconStroke.Color = Color3.fromRGB(0, 255, 255)
+IconStroke.Thickness = 3
+IconStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+
+local IconGradient = Instance.new("UIGradient", IconStroke)
+IconGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 255, 255)),
+    ColorSequenceKeypoint.new(0.45, Color3.fromRGB(225, 255, 255)),
+    ColorSequenceKeypoint.new(0.55, Color3.fromRGB(225, 255, 255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 255, 255))
+})
+
+local function AnimateIcon()
+    TweenService:Create(IconGradient, TweenInfo.new(3, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1), {
+        Rotation = 360
+    }):Play()
+
+
+    task.spawn(function()
+        while true do
+            TweenService:Create(IconGradient, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                Offset = Vector2.new(0.1, 0)
+            }):Play()
+            task.wait(1.5)
+            TweenService:Create(IconGradient, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                Offset = Vector2.new(-0.1, 0)
+            }):Play()
+            task.wait(1.5)
+        end
+    end)
+end
+AnimateIcon()
 
 local MainGui = Instance.new("ScreenGui", PlayerGui)
 MainGui.Name = "TVH_MainGui"
@@ -91,7 +126,12 @@ Main.Size = UDim2.new(0, 580, 0, 400)
 Main.Position = UDim2.new(0.5, -290, 0.5, -200)
 Main.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 Main.Visible = false
+Main.ClipsDescendants = true
 Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 12)
+
+local MainStroke = Instance.new("UIStroke", Main)
+MainStroke.Thickness = 1.5
+MainStroke.Color = Color3.fromRGB(40, 40, 40)
 
 local TopBar = Instance.new("Frame", Main)
 TopBar.Size = UDim2.new(1, 0, 0, 45)
@@ -1614,64 +1654,43 @@ function Tween(targetCFrame)
     end)
 end
     
-local plr = game.Players.LocalPlayer
-local CbFw = debug.getupvalues(require(plr.PlayerScripts.CombatFramework))
-local CbFw2 = CbFw[2]
+function AttackNoCoolDown()
+    local AC = CbFw2 and CbFw2.activeController
+    if not AC or not AC.attack then return end
 
-function GetCurrentBlade() 
-    local p13 = CbFw2.activeController
-    local ret = p13.blades[1]
-    if not ret then return end
-    while ret.Parent~=game.Players.LocalPlayer.Character do ret=ret.Parent end
-    return ret
-end
-
-function AttackNoCoolDown() 
-    local AC = CbFw2.activeController
-    for i = 1, 1 do 
+    pcall(function()
         local bladehit = require(game.ReplicatedStorage.CombatFramework.RigLib).getBladeHits(
             plr.Character,
             {plr.Character.HumanoidRootPart},
-            60
+            100
         )
-        local cac = {}
-        local hash = {}
-        for k, v in pairs(bladehit) do
-            if v.Parent:FindFirstChild("HumanoidRootPart") and not hash[v.Parent] then
-                table.insert(cac, v.Parent.HumanoidRootPart)
-                hash[v.Parent] = true
+
+        local targets = {}
+        for _, v in pairs(bladehit) do
+            if v.Parent:FindFirstChild("HumanoidRootPart") then
+                table.insert(targets, v.Parent.HumanoidRootPart)
             end
         end
-        bladehit = cac
-        if #bladehit > 0 then
+
+        if #targets > 0 then
             local u8 = debug.getupvalue(AC.attack, 5)
             local u9 = debug.getupvalue(AC.attack, 6)
             local u7 = debug.getupvalue(AC.attack, 4)
             local u10 = debug.getupvalue(AC.attack, 7)
+            
             local u12 = (u8 * 798405 + u7 * 727595) % u9
-            local u13 = u7 * 798405
-            (function()
-                u12 = (u12 * u9 + u13) % 1099511627776
-                u8 = math.floor(u12 / u9)
-                u7 = u12 - u8 * u9
-            end)()
-            u10 = u10 + 1
-            debug.setupvalue(AC.attack, 5, u8)
-            debug.setupvalue(AC.attack, 6, u9)
-            debug.setupvalue(AC.attack, 4, u7)
-            debug.setupvalue(AC.attack, 7, u10)
+            u12 = (u12 * u9 + (u7 * 798405)) % 1099511627776
+            
+            debug.setupvalue(AC.attack, 5, math.floor(u12 / u9))
+            debug.setupvalue(AC.attack, 7, u10 + 1)
+
             pcall(function()
-                for k, v in pairs(AC.animator.anims.basic) do
-                    v:Play()
-                end                  
+                for _, anim in pairs(AC.animator.anims.basic) do anim:Play() end
             end)
-            if plr.Character:FindFirstChildOfClass("Tool") and AC.blades and AC.blades[1] then 
-                game:GetService("ReplicatedStorage").RigControllerEvent:FireServer("weaponChange",tostring(GetCurrentBlade()))
-                game.ReplicatedStorage.Remotes.Validator:FireServer(math.floor(u12 / 1099511627776 * 16777215), u10)
-                game:GetService("ReplicatedStorage").RigControllerEvent:FireServer("hit", bladehit, i, "") 
-            end
+            
+            game.ReplicatedStorage.RigControllerEvent:FireServer("hit", targets, 1, "")
         end
-    end
+    end)
 end
 
 function EquipTool()
@@ -1694,6 +1713,18 @@ function EquipTool()
                 
                 character.Humanoid:EquipTool(tool)
                 break
+            end
+        end
+    end
+end
+
+function BringMob(targetMob, pos)
+    for _, v in pairs(workspace.Enemies:GetChildren()) do
+        if v.Name == targetMob and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 then
+            if (v.HumanoidRootPart.Position - pos.Position).Magnitude < 300 then
+                v.HumanoidRootPart.CFrame = pos
+                v.HumanoidRootPart.CanCollide = false
+                v.Humanoid.WalkSpeed = 0
             end
         end
     end
@@ -1738,9 +1769,9 @@ CreateToggle(TabFarm, "Tự Động Farm Level", 35, "AutoFarmLevel", function(s
 
                                     EquipTool()
                                     AutoHaki()
+                                    Tween(mob.HumanoidRootPart.CFrame * CFrame.new(0, 40, 0))
+                                    BringMob(NameMon, mob.HumanoidRootPart.CFrame)
                                     AttackNoCoolDown()
-
-                                    Tween(mob.HumanoidRootPart.CFrame * CFrame.new(0, 20, 0))
 
                                 until not State.AutoFarmLevel
                                 or mob.Humanoid.Health <= 0
@@ -1777,7 +1808,7 @@ CreateToggle(TabFarm, "Tự Động Farm Boss", 85, "AutoFarmBoss", function(sta
                         EquipTool()
                         AutoHaki()
                         AttackNoCoolDown()
-                        Tween(bossInstance.HumanoidRootPart.CFrame * CFrame.new(0, 20, 0))
+                        Tween(bossInstance.HumanoidRootPart.CFrame * CFrame.new(0, 40, 0))
                     else
                         Tween(CFrameBoss)
                     end
