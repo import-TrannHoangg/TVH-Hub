@@ -16,7 +16,7 @@ local State = {
     AntiBan = true,
     StealthMode = true,
     AutoFarmLevel = false,
-    SelectedWeapon = "Melee"
+    SelectWeapon = "Melee"
 }
 
 local KnownAdmins = {
@@ -1655,12 +1655,29 @@ function AttackNoCoolDown()
     end
 end
 
-function EquipTool(ToolSe)
-	if game.Players.LocalPlayer.Backpack:FindFirstChild(ToolSe) then
-		local tool = game.Players.LocalPlayer.Backpack:FindFirstChild(ToolSe)
-		wait(0.5)
-		game.Players.LocalPlayer.Character.Humanoid:EquipTool(tool)
-	end
+function EquipTool()
+    local weaponType = State.SelectWeapon or "Melee"
+    local character = player.Character
+    if not character or not character:FindFirstChild("Humanoid") then return end
+
+    for _, tool in pairs(character:GetChildren()) do
+        if tool:IsA("Tool") and (tool.ToolTip == weaponType or tool:FindFirstChild("Level")) then
+            return 
+        end
+    end
+
+    for _, tool in pairs(player.Backpack:GetChildren()) do
+        if tool:IsA("Tool") then
+            if (weaponType == "Melee" and tool:FindFirstChild("Melee")) or 
+               (weaponType == "Sword" and tool:FindFirstChild("Sword")) or
+               (weaponType == "Blox Fruit" and (tool.ToolTip == "Blox Fruit" or tool:FindFirstChild("Fruit"))) or
+               tool.Name:find(weaponType) then
+                
+                character.Humanoid:EquipTool(tool)
+                break
+            end
+        end
+    end
 end
 
 CreateToggle(TabFarm, "Tự Động Farm Level", 10, "AutoFarmLevel", function(state)
@@ -1698,7 +1715,7 @@ CreateToggle(TabFarm, "Tự Động Farm Level", 10, "AutoFarmLevel", function(s
                                 repeat
                                     task.wait()
 
-                                    EquipTool(State.SelectWeapon or "Melee")
+                                    EquipTool()
                                     AutoHaki()
                                     AttackNoCoolDown()
 
