@@ -16,7 +16,8 @@ local State = {
     AntiBan = true,
     StealthMode = true,
     AutoFarmLevel = false,
-    SelectedWeapon = "Melee"
+    ShopTween = false
+    SelectedWeapon = SelectedWeapon or "Melee"
 }
 
 local KnownAdmins = {
@@ -1494,61 +1495,123 @@ function MaterialMon()
     end
 end
 
-CreateToggle(TabFarm, "Tự Động Farm Level", 10, "AutoFarmLevel", function(Value)
-    State.AutoFarmLevel = Value
+function AutoHaki()
+    local char = game.Players.LocalPlayer.Character
+    if char and not char:FindFirstChild("HasBuso") then
+        game.ReplicatedStorage.Remotes.CommF_:InvokeServer("Buso")
+    end
+end
 
-    if Value then
-        task.spawn(function()
+local TweenSpeed = 340
+
+function Tween(targetCFrame)
+    if not targetCFrame then return end
+
+    local player = game.Players.LocalPlayer
+    local char = player.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+
+    local hrp = char.HumanoidRootPart
+    local distance = (targetCFrame.Position - hrp.Position).Magnitude
+
+    if distance < 2 then
+        hrp.CFrame = targetCFrame
+        return
+    end
+
+    local tween = game:GetService("TweenService"):Create(
+        hrp,
+        TweenInfo.new(distance / TweenSpeed, Enum.EasingStyle.Linear),
+        {CFrame = targetCFrame}
+    )
+
+    tween:Play()
+
+    task.spawn(function()
+        while tween.PlaybackState == Enum.PlaybackState.Playing do
+            if State.StopTween or not State.AutoFarmLevel then
+                tween:Cancel()
+                break
+            end
+            task.wait()
+        end
+    end)
+end
+    
+function AttackNoCoolDown(enemy)
+    if enemy and enemy:FindFirstChild("HumanoidRootPart") then
+        game.ReplicatedStorage.RigControllerEvent:FireServer(
+            "hit",
+            {enemy.HumanoidRootPart},
+            1,
+            ""
+        )
+    end
+end
+
+CreateToggle(TabFarm, "Tự Động Farm Level", 10, "AutoFarmLevel", function(state)
+    if state then
+        spawn(function()
             while State.AutoFarmLevel do
                 pcall(function()
+
                     CheckLevel()
 
                     local player = game.Players.LocalPlayer
-                    local char = player.Character
-                    local root = char and char:FindFirstChild("HumanoidRootPart")
+                    local questUI = player.PlayerGui.Main.Quest
 
-                    if not root then return end
+                    if not questUI.Visible or not string.find(
+                        questUI.Container.QuestTitle.Title.Text,
+                        NameMon
+                    ) then
 
-                    if not player.PlayerGui.Main.Quest.Visible then
-                        if CFrameQ then
-                            root.CFrame = CFrameQ
-                            task.wait(0.5)
-                            game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer(
-                                "StartQuest",
-                                NameQuest,
-                                QuestLv
+                        game.ReplicatedStorage.Remotes.CommF_:InvokeServer("AbandonQuest")
+
+                        Tween(CFrameQ)
+
+                        if (player.Character.HumanoidRootPart.Position - CFrameQ.Position).Magnitude < 5 then
+                            game.ReplicatedStorage.Remotes.CommF_:InvokeServer(
+                                "StartQuest", NameQuest, QuestLv
                             )
                         end
+
                     else
                         for _, mob in pairs(workspace.Enemies:GetChildren()) do
                             if mob.Name == NameMon
                             and mob:FindFirstChild("Humanoid")
                             and mob.Humanoid.Health > 0 then
 
-                                local mobRoot = mob:FindFirstChild("HumanoidRootPart")
-                                if mobRoot then
-                                    root.CFrame = mobRoot.CFrame * CFrame.new(0,5,0)
+                                repeat
+                                    task.wait()
 
-                                    game:GetService("VirtualUser"):Button1Down(Vector2.new(0,0))
-                                    task.wait(0.1)
-                                    game:GetService("VirtualUser"):Button1Up(Vector2.new(0,0))
-                                end
+                                    EquipTool(State.SelectWeapon or "Melee")
+                                    AutoHaki()
+                                    AttackNoCoolDown()
+
+                                    Tween(mob.HumanoidRootPart.CFrame * CFrame.new(0, 20, 0))
+
+                                until not State.AutoFarmLevel
+                                or mob.Humanoid.Health <= 0
+                                or not mob.Parent
+
+                            end
+                        end
+
+                        for _, spawnPoint in pairs(workspace._WorldOrigin.EnemySpawns:GetChildren()) do
+                            if string.find(spawnPoint.Name, NameMon) then
+                                Tween(spawnPoint.CFrame)
                             end
                         end
                     end
                 end)
 
-                task.wait(0.2)
+                task.wait(.3)
             end
         end)
     end
 end)
 
-CreateDropdown(TabSettings, "Chọn Công Cụ Đánh", {"Melee", "Sword", "Blox Fruit"}, "SelectedWeapon", function(Value)
-    State.SelectedWeapon = Value
-end)
-
-CreateToggle(TabSettings, "FPS Boost", 60, "FPSBoost", function(state)
+CreateToggle(TabSettings, "FPS Boost", 10, "FPSBoost", function(state)
     if state then
         Lighting.GlobalShadows = false
         Lighting.FogEnd = 9e9
@@ -1563,7 +1626,7 @@ CreateToggle(TabSettings, "FPS Boost", 60, "FPSBoost", function(state)
     end
 end)
 
-CreateToggle(TabSettings, "Ẩn Đảo Xa", 110, "HiddenIsland", function(state)
+CreateToggle(TabSettings, "Ẩn Đảo Xa", 60, "HiddenIsland", function(state)
     task.spawn(function()
         while State.HiddenIsland do
             local char = player.Character
@@ -1587,7 +1650,7 @@ CreateToggle(TabSettings, "Ẩn Đảo Xa", 110, "HiddenIsland", function(state)
     end)
 end)
 
-CreateToggle(TabSettings, "Fix Lag Trên Điện Thoại", 160, "MobileMode", function(state)
+CreateToggle(TabSettings, "Fix Lag Trên Điện Thoại", 110, "MobileMode", function(state)
     if state then
         Lighting.GlobalShadows = false
         Lighting.Brightness = 0
@@ -1606,7 +1669,7 @@ CreateToggle(TabSettings, "Fix Lag Trên Điện Thoại", 160, "MobileMode", fu
     end
 end)
 
-CreateToggle(TabSettings, "Fix Lag Tối Ưu", 260, "FixLagMode", function(state)
+CreateToggle(TabSettings, "Fix Lag Tối Ưu", 160, "FixLagMode", function(state)
     task.spawn(function()
         while State.FixLagMode do
             local fps = math.floor(1 / RunService.RenderStepped:Wait())
@@ -1625,7 +1688,7 @@ end)
 
 local AntiBanConnections = {}
 
-CreateToggle(TabSettings, "Anti Ban", 310, "AntiBan", function(state)
+CreateToggle(TabSettings, "Anti Ban", 210, "AntiBan", function(state)
     if not State.AntiBan then
         for _, conn in pairs(AntiBanConnections) do
             if conn then conn:Disconnect() end
@@ -1667,7 +1730,7 @@ CreateToggle(TabSettings, "Anti Ban", 310, "AntiBan", function(state)
     end)
 end)
 
-CreateToggle(TabSettings, "Chống Bị Phát Hiện Dùng Script", 360, "StealthMode", function(state)
+CreateToggle(TabSettings, "Chống Bị Phát Hiện Dùng Script", 260, "StealthMode", function(state)
     if not State.StealthMode then
         for _, gui in pairs(PlayerGui:GetChildren()) do
             if gui:IsA("ScreenGui") then
@@ -1677,7 +1740,7 @@ CreateToggle(TabSettings, "Chống Bị Phát Hiện Dùng Script", 360, "Stealt
     end
 end)
 
-CreateToggle(TabSettings, "Anti AFK", 410, "AntiAFK", function(state)
+CreateToggle(TabSettings, "Anti AFK", 310, "AntiAFK", function(state)
     if not state then return end
 
     local vu = game:GetService("VirtualUser")
