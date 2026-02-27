@@ -257,6 +257,83 @@ local function CreateToggle(parent, text, y, key, callback)
     end
 end
 
+local function CreateWeaponDropdown(parent, text, y)
+    local weapons = {"Melee", "Sword", "Blox Fruit"}
+    local isOpened = false
+    
+    local frame = Instance.new("Frame", parent)
+    frame.Size = UDim2.new(1, -10, 0, 45)
+    frame.Position = UDim2.new(0, 5, 0, y)
+    frame.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+    frame.ZIndex = 10
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 6)
+
+    local label = Instance.new("TextLabel", frame)
+    label.Size = UDim2.new(1, -60, 0, 45)
+    label.Position = UDim2.new(0, 15, 0, 0)
+    label.Text = text .. ": " .. State.SelectWeapon
+    label.TextColor3 = Color3.fromRGB(0, 255, 255)
+    label.Font = Enum.Font.GothamBold
+    label.TextSize = 14
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.BackgroundTransparency = 1
+    label.ZIndex = 11
+
+    local toggleBtn = Instance.new("TextButton", frame)
+    toggleBtn.Size = UDim2.new(0, 30, 0, 30)
+    toggleBtn.Position = UDim2.new(1, -40, 0, 7.5)
+    toggleBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    toggleBtn.Text = "v"
+    toggleBtn.TextColor3 = Color3.new(1, 1, 1)
+    toggleBtn.Font = Enum.Font.GothamBold
+    toggleBtn.ZIndex = 11
+    Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(0, 4)
+
+    local container = Instance.new("Frame", frame)
+    container.Size = UDim2.new(1, 0, 0, 0)
+    container.Position = UDim2.new(0, 0, 0, 45)
+    container.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    container.BorderSizePixel = 0
+    container.ClipsDescendants = true
+    container.ZIndex = 12
+    Instance.new("UICorner", container).CornerRadius = UDim.new(0, 6)
+
+    local layout = Instance.new("UIListLayout", container)
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+
+    for i, v in pairs(weapons) do
+        local btn = Instance.new("TextButton", container)
+        btn.Size = UDim2.new(1, 0, 0, 35)
+        btn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+        btn.BorderSizePixel = 0
+        btn.Text = v
+        btn.TextColor3 = Color3.fromRGB(200, 200, 200)
+        btn.Font = Enum.Font.Gotham
+        btn.TextSize = 13
+        btn.ZIndex = 13
+
+        btn.MouseButton1Click:Connect(function()
+            State.SelectWeapon = v
+            label.Text = text .. ": " .. v
+            isOpened = false
+            TweenService:Create(container, TweenInfo.new(0.3), {Size = UDim2.new(1, 0, 0, 0)}):Play()
+            toggleBtn.Text = "v"
+            SaveConfig()
+        end)
+    end
+
+    toggleBtn.MouseButton1Click:Connect(function()
+        isOpened = not isOpened
+        if isOpened then
+            toggleBtn.Text = "^"
+            TweenService:Create(container, TweenInfo.new(0.3), {Size = UDim2.new(1, 0, 0, #weapons * 35)}):Play()
+        else
+            toggleBtn.Text = "v"
+            TweenService:Create(container, TweenInfo.new(0.3), {Size = UDim2.new(1, 0, 0, 0)}):Play()
+        end
+    end)
+end
+
 local function MakeDraggable(frame)
     local dragging, dragInput, startPos, startFramePos
     frame.InputBegan:Connect(function(input)
@@ -296,25 +373,6 @@ local TeleportService = game:GetService("TeleportService")
 
 local function HopServer()
     TeleportService:Teleport(game.PlaceId, player)
-end
-
-local function EquipSelectedWeapon()
-    local player = game.Players.LocalPlayer
-    local char = player.Character
-    local backpack = player.Backpack
-    if not char then return end
-
-    for _, tool in pairs(backpack:GetChildren()) do
-        if State.SelectedWeapon == "Melee" and tool.ToolTip == "Melee" then
-            char.Humanoid:EquipTool(tool)
-
-        elseif State.SelectedWeapon == "Sword" and tool.ToolTip == "Sword" then
-            char.Humanoid:EquipTool(tool)
-
-        elseif State.SelectedWeapon == "Blox Fruit" and tool.ToolTip == "Blox Fruit" then
-            char.Humanoid:EquipTool(tool)
-        end
-    end
 end
 
 MakeDraggable(Icon)
@@ -1537,15 +1595,72 @@ function Tween(targetCFrame)
     end)
 end
     
-function AttackNoCoolDown(enemy)
-    if enemy and enemy:FindFirstChild("HumanoidRootPart") then
-        game.ReplicatedStorage.RigControllerEvent:FireServer(
-            "hit",
-            {enemy.HumanoidRootPart},
-            1,
-            ""
+local plr = game.Players.LocalPlayer
+local CbFw = debug.getupvalues(require(plr.PlayerScripts.CombatFramework))
+local CbFw2 = CbFw[2]
+
+function GetCurrentBlade() 
+    local p13 = CbFw2.activeController
+    local ret = p13.blades[1]
+    if not ret then return end
+    while ret.Parent~=game.Players.LocalPlayer.Character do ret=ret.Parent end
+    return ret
+end
+
+function AttackNoCoolDown() 
+    local AC = CbFw2.activeController
+    for i = 1, 1 do 
+        local bladehit = require(game.ReplicatedStorage.CombatFramework.RigLib).getBladeHits(
+            plr.Character,
+            {plr.Character.HumanoidRootPart},
+            60
         )
+        local cac = {}
+        local hash = {}
+        for k, v in pairs(bladehit) do
+            if v.Parent:FindFirstChild("HumanoidRootPart") and not hash[v.Parent] then
+                table.insert(cac, v.Parent.HumanoidRootPart)
+                hash[v.Parent] = true
+            end
+        end
+        bladehit = cac
+        if #bladehit > 0 then
+            local u8 = debug.getupvalue(AC.attack, 5)
+            local u9 = debug.getupvalue(AC.attack, 6)
+            local u7 = debug.getupvalue(AC.attack, 4)
+            local u10 = debug.getupvalue(AC.attack, 7)
+            local u12 = (u8 * 798405 + u7 * 727595) % u9
+            local u13 = u7 * 798405
+            (function()
+                u12 = (u12 * u9 + u13) % 1099511627776
+                u8 = math.floor(u12 / u9)
+                u7 = u12 - u8 * u9
+            end)()
+            u10 = u10 + 1
+            debug.setupvalue(AC.attack, 5, u8)
+            debug.setupvalue(AC.attack, 6, u9)
+            debug.setupvalue(AC.attack, 4, u7)
+            debug.setupvalue(AC.attack, 7, u10)
+            pcall(function()
+                for k, v in pairs(AC.animator.anims.basic) do
+                    v:Play()
+                end                  
+            end)
+            if plr.Character:FindFirstChildOfClass("Tool") and AC.blades and AC.blades[1] then 
+                game:GetService("ReplicatedStorage").RigControllerEvent:FireServer("weaponChange",tostring(GetCurrentBlade()))
+                game.ReplicatedStorage.Remotes.Validator:FireServer(math.floor(u12 / 1099511627776 * 16777215), u10)
+                game:GetService("ReplicatedStorage").RigControllerEvent:FireServer("hit", bladehit, i, "") 
+            end
+        end
     end
+end
+
+function EquipTool(ToolSe)
+	if game.Players.LocalPlayer.Backpack:FindFirstChild(ToolSe) then
+		local tool = game.Players.LocalPlayer.Backpack:FindFirstChild(ToolSe)
+		wait(0.5)
+		game.Players.LocalPlayer.Character.Humanoid:EquipTool(tool)
+	end
 end
 
 CreateToggle(TabFarm, "Tự Động Farm Level", 10, "AutoFarmLevel", function(state)
@@ -1610,7 +1725,9 @@ CreateToggle(TabFarm, "Tự Động Farm Level", 10, "AutoFarmLevel", function(s
     end
 end)
 
-CreateToggle(TabSettings, "FPS Boost", 10, "FPSBoost", function(state)
+CreateWeaponDropdown(TabSettings, "Chọn Vũ Khí", 10)
+
+CreateToggle(TabSettings, "FPS Boost", 60, "FPSBoost", function(state)
     if state then
         Lighting.GlobalShadows = false
         Lighting.FogEnd = 9e9
@@ -1625,7 +1742,7 @@ CreateToggle(TabSettings, "FPS Boost", 10, "FPSBoost", function(state)
     end
 end)
 
-CreateToggle(TabSettings, "Ẩn Đảo Xa", 60, "HiddenIsland", function(state)
+CreateToggle(TabSettings, "Ẩn Đảo Xa", 110, "HiddenIsland", function(state)
     task.spawn(function()
         while State.HiddenIsland do
             local char = player.Character
@@ -1649,7 +1766,7 @@ CreateToggle(TabSettings, "Ẩn Đảo Xa", 60, "HiddenIsland", function(state)
     end)
 end)
 
-CreateToggle(TabSettings, "Fix Lag Trên Điện Thoại", 110, "MobileMode", function(state)
+CreateToggle(TabSettings, "Fix Lag Trên Điện Thoại", 160, "MobileMode", function(state)
     if state then
         Lighting.GlobalShadows = false
         Lighting.Brightness = 0
@@ -1668,7 +1785,7 @@ CreateToggle(TabSettings, "Fix Lag Trên Điện Thoại", 110, "MobileMode", fu
     end
 end)
 
-CreateToggle(TabSettings, "Fix Lag Tối Ưu", 160, "FixLagMode", function(state)
+CreateToggle(TabSettings, "Fix Lag Tối Ưu", 210, "FixLagMode", function(state)
     task.spawn(function()
         while State.FixLagMode do
             local fps = math.floor(1 / RunService.RenderStepped:Wait())
@@ -1687,7 +1804,7 @@ end)
 
 local AntiBanConnections = {}
 
-CreateToggle(TabSettings, "Anti Ban", 210, "AntiBan", function(state)
+CreateToggle(TabSettings, "Anti Ban", 260, "AntiBan", function(state)
     if not State.AntiBan then
         for _, conn in pairs(AntiBanConnections) do
             if conn then conn:Disconnect() end
@@ -1729,7 +1846,7 @@ CreateToggle(TabSettings, "Anti Ban", 210, "AntiBan", function(state)
     end)
 end)
 
-CreateToggle(TabSettings, "Chống Bị Phát Hiện Dùng Script", 260, "StealthMode", function(state)
+CreateToggle(TabSettings, "Chống Bị Phát Hiện Dùng Script", 310, "StealthMode", function(state)
     if not State.StealthMode then
         for _, gui in pairs(PlayerGui:GetChildren()) do
             if gui:IsA("ScreenGui") then
@@ -1739,7 +1856,7 @@ CreateToggle(TabSettings, "Chống Bị Phát Hiện Dùng Script", 260, "Stealt
     end
 end)
 
-CreateToggle(TabSettings, "Anti AFK", 310, "AntiAFK", function(state)
+CreateToggle(TabSettings, "Anti AFK", 360, "AntiAFK", function(state)
     if not state then return end
 
     local vu = game:GetService("VirtualUser")
