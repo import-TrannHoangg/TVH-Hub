@@ -4,7 +4,7 @@ end
 
 getgenv().Settings = {
     JoinTeam = true,
-    Team = "Marines"
+    Team = "Prirates"
 }
 
 local Lighting = game:GetService("Lighting")
@@ -39,6 +39,11 @@ local State = {
     AutoPickUpFruit = false,
     AutoStoreFruit = false,
     AutoDropFruit = false,
+    State.AutoBuyChip = false,
+    State.AutoStartRaid = false,
+    State.AutoFarmRaid = false,
+    State.AutoNextIsland = false,
+    State.GetFruitLow = false,
     SelectWeapon = "Melee"
 }
 
@@ -48,6 +53,10 @@ local KnownAdmins = {
     "@mygame43",
     "@Krossful"
 }
+
+local Chips = {"Flame", "Ice", "Quake", "Light", "Dark", "Spider", "Rumble", "Magma", "Buddha", "Sand", "Phoenix", "Dough"}
+local LowFruits = {"Rocket-Rocket", "Spin-Spin", "Chop-Chop", "Spring-Spring", "Bomb-Bomb", "Smoke-Smoke", "Spike-Spike", "Flame-Flame", "Falcon-Falcon", "Ice-Ice", "Sand-Sand", "Dark-Dark", "Ghost-Ghost", "Diamond-Diamond", "Light-Light", "Rubber-Rubber", "Creation-Creation"}
+local SelectChip = "Dark"
 
 local TabIcons = {
     ["Tab Farm"] = "rbxassetid://70492079783125",
@@ -324,10 +333,11 @@ local function CreateToggle(parent, text, y, key, callback)
     end
 end
 
-local function CreateWeaponDropdown(parent, text, y)
-    local weapons = {"Melee", "Sword", "BloxFruit", "Gun"}
+local function CreateDropdown(parent, text, y, options, stateKey, callback)
     local isOpened = false
-    
+    local optionsCount = #options
+    local dropdownHeight = optionsCount * 35
+
     local frame = Instance.new("Frame", parent)
     frame.Size = UDim2.new(1, -10, 0, 45)
     frame.Position = UDim2.new(0, 5, 0, y)
@@ -338,7 +348,9 @@ local function CreateWeaponDropdown(parent, text, y)
     local label = Instance.new("TextLabel", frame)
     label.Size = UDim2.new(1, -60, 0, 45)
     label.Position = UDim2.new(0, 15, 0, 0)
-    label.Text = text .. " : " .. State.SelectWeapon
+
+    local currentVal = State[stateKey] or options[1]
+    label.Text = text .. " : " .. tostring(currentVal)
     label.TextColor3 = Color3.fromRGB(220, 220, 220)
     label.Font = Enum.Font.GothamBold
     label.TextSize = 14
@@ -349,9 +361,9 @@ local function CreateWeaponDropdown(parent, text, y)
     local toggleBtn = Instance.new("TextButton", frame)
     toggleBtn.Size = UDim2.new(0, 30, 0, 30)
     toggleBtn.Position = UDim2.new(1, -40, 0, 7.5)
-    toggleBtn.BackgroundColor3 = Color3.fromRGB(0, 255, 255) or Color3.fromRGB(60, 60, 60)
+    toggleBtn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
     toggleBtn.Text = "v"
-    toggleBtn.TextColor3 = Color3.new(1, 1, 1)
+    toggleBtn.TextColor3 = Color3.new(0, 255, 255)
     toggleBtn.Font = Enum.Font.GothamBold
     toggleBtn.ZIndex = 11
     Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(0, 4)
@@ -362,42 +374,98 @@ local function CreateWeaponDropdown(parent, text, y)
     container.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
     container.BorderSizePixel = 0
     container.ClipsDescendants = true
-    container.ZIndex = 12
+    container.ZIndex = 20
     Instance.new("UICorner", container).CornerRadius = UDim.new(0, 6)
 
     local layout = Instance.new("UIListLayout", container)
     layout.SortOrder = Enum.SortOrder.LayoutOrder
 
-    for i, v in pairs(weapons) do
+    for _, v in pairs(options) do
         local btn = Instance.new("TextButton", container)
         btn.Size = UDim2.new(1, 0, 0, 35)
         btn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
         btn.BorderSizePixel = 0
-        btn.Text = v
+        btn.Text = tostring(v)
         btn.TextColor3 = Color3.fromRGB(200, 200, 200)
         btn.Font = Enum.Font.Gotham
         btn.TextSize = 13
-        btn.ZIndex = 13
+        btn.ZIndex = 21
 
         btn.MouseButton1Click:Connect(function()
-            State.SelectWeapon = v
-            label.Text = text .. " :  " .. v
+            State[stateKey] = v
+            label.Text = text .. " : " .. tostring(v)
             isOpened = false
-            TweenService:Create(container, TweenInfo.new(0.3), {Size = UDim2.new(1, 0, 0, 0)}):Play()
+            
+            game:GetService("TweenService"):Create(container, TweenInfo.new(0.3), {Size = UDim2.new(1, 0, 0, 0)}):Play()
             toggleBtn.Text = "v"
-            SaveConfig()
+            
+            if callback then callback(v) end
+            if SaveConfig then SaveConfig() end
         end)
+        
+        btn.MouseEnter:Connect(function() btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45) end)
+        btn.MouseLeave:Connect(function() btn.BackgroundColor3 = Color3.fromRGB(35, 35, 35) end)
     end
 
     toggleBtn.MouseButton1Click:Connect(function()
         isOpened = not isOpened
         if isOpened then
             toggleBtn.Text = "^"
-            TweenService:Create(container, TweenInfo.new(0.3), {Size = UDim2.new(1, 0, 0, #weapons * 35)}):Play()
+            game:GetService("TweenService"):Create(container, TweenInfo.new(0.3), {Size = UDim2.new(1, 0, 0, dropdownHeight)}):Play()
         else
             toggleBtn.Text = "v"
-            TweenService:Create(container, TweenInfo.new(0.3), {Size = UDim2.new(1, 0, 0, 0)}):Play()
+            game:GetService("TweenService"):Create(container, TweenInfo.new(0.3), {Size = UDim2.new(1, 0, 0, 0)}):Play()
         end
+    end)
+end
+
+local function CreateButton(parent, text, y, callback)
+    local frame = Instance.new("Frame", parent)
+    frame.Size = UDim2.new(1, -10, 0, 45)
+    frame.Position = UDim2.new(0, 5, 0, y)
+    frame.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+    frame.ZIndex = 5
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 6)
+
+    local label = Instance.new("TextLabel", frame)
+    label.Size = UDim2.new(1, -50, 1, 0)
+    label.Position = UDim2.new(0, 15, 0, 0)
+    label.Text = text
+    label.TextColor3 = Color3.fromRGB(220, 220, 220)
+    label.Font = Enum.Font.GothamBold
+    label.TextSize = 14
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.BackgroundTransparency = 1
+    label.ZIndex = 6
+
+    local btn = Instance.new("TextButton", frame)
+    btn.Size = UDim2.new(0, 80, 0, 30)
+    btn.Position = UDim2.new(1, -90, 0, 7.5)
+    btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    btn.Text = "CLICK"
+    btn.TextColor3 = Color3.fromRGB(0, 255, 255)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 12
+    btn.ZIndex = 7
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+
+    btn.MouseButton1Click:Connect(function()
+        btn.BackgroundColor3 = Color3.fromRGB(0, 255, 255)
+        btn.TextColor3 = Color3.fromRGB(28, 28, 28)
+        
+        task.spawn(function()
+            pcall(callback)
+            task.wait(0.2)
+            btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+            btn.TextColor3 = Color3.fromRGB(0, 255, 255)
+        end)
+    end)
+    
+    btn.MouseEnter:Connect(function()
+        btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    end)
+    btn.MouseLeave:Connect(function()
+        btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
     end)
 end
 
@@ -450,7 +518,7 @@ local TabFarm = CreateTab("Tab Farm", 1)
 local TabQuestsItem = CreateTab("Tab Nhiệm Vụ, Item", 2)
 local TabFishing = CreateTab("Tab Câu Cá", 3)
 local TabSeaEvent = CreateTab("Tab Sự Kiện Sea", 4)
-local TabRaidFruit = CreateTab("Tab Raid/Trái", 5)
+local TabRaidFruitFruit = CreateTab("Tab Raid/Trái", 5)
 local TabStats= CreateTab("Tab Chỉ Số", 6)
 local TabTeleport = CreateTab("Tab Dịch Chuyển", 7)
 local TabStatus = CreateTab("Tab Trạng Thái", 8)
@@ -1669,7 +1737,7 @@ function Tween(targetCFrame)
         end
     end)
 end
-  
+
 function GetTarget()
     local char = player.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") then return nil end
@@ -1692,53 +1760,45 @@ function GetTarget()
     return closestMob
 end
 
-function AttackNormal(target)
-    if not target or not State.AutoFarmLevel then return end
+function AttackWeapon()
+    pcall(function()
+        local char = player.Character
+        local root = char:FindFirstChild("HumanoidRootPart")
+        local hum = char:FindFirstChild("Humanoid")
+        local tool = char:FindFirstChildOfClass("Tool")
 
-    local char = player.Character
-    local root = char:FindFirstChild("HumanoidRootPart")
-    if not char or not root then return end
+        if not char or not root or hum.Health <= 0 then return end
 
-    local targetRoot = target:FindFirstChild("HumanoidRootPart")
-    local targetHum = target:FindFirstChild("Humanoid")
-    if not targetRoot or not targetHum or targetHum.Health <= 0 then return end
+        local target = GetTarget()
+        if not target then return end
+        
+        local targetRoot = target:FindFirstChild("HumanoidRootPart")
+        local targetHum = target:FindFirstChild("Humanoid")
 
-    AutoHaki()
+        if targetRoot and targetHum.Health > 0 then
+            root.CFrame = targetRoot.CFrame * CFrame.new(0, 11 , 0)
+            
+            for _, v in pairs(workspace.Enemies:GetChildren()) do
+                local eRoot = v:FindFirstChild("HumanoidRootPart")
+                local eHum = v:FindFirstChild("Humanoid")
 
-    local weaponType = State.SelectWeapon or "Melee"
-    if not char:FindFirstChildOfClass("Tool") or (not char:FindFirstChildOfClass("Tool").ToolTip:find(weaponType) and not char:FindFirstChildOfClass("Tool").Name:find(weaponType)) then
-        for _, tool in pairs(player.Backpack:GetChildren()) do
-            if tool.ToolTip:find(weaponType) or tool.Name:find(weaponType) or (weaponType == "Melee" and tool.ToolTip == "Combat") then
-                char.Humanoid:EquipTool(tool)
-                break
+                if eRoot and eHum and eHum.Health > 0 then
+                    local dist = (root.Position - eRoot.Position).Magnitude
+                    if dist < 20 then
+                        eRoot.CanCollide = false
+                        eRoot.Size = Vector3.new(60, 60, 60)
+                        
+                        if tool then
+                            game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("Attack", eRoot.Position)
+                            tool:Activate()
+                            game:GetService("VirtualUser"):CaptureController()
+                            game:GetService("VirtualUser"):Button1Down(Vector2.new(1280, 672))
+                        end
+                    end
+                end
             end
         end
-    end
-
-    root.CFrame = targetRoot.CFrame * CFrame.new(0, 5, 0)
-
-    for _, mob in pairs(workspace.Enemies:GetChildren()) do
-        if mob.Name == target.Name and mob:FindFirstChild("HumanoidRootPart") and mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
-            local mRoot = mob.HumanoidRootPart
-            mRoot.CanCollide = false
-            mRoot.Size = Vector3.new(60, 60, 60)
-            
-            mRoot.CFrame = targetRoot.CFrame * Pos
-            
-            if not mRoot:FindFirstChild("BodyVelocity") then
-                local bv = Instance.new("BodyVelocity", mRoot)
-                bv.Velocity = Vector3.new(0, 0, 0)
-                bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
-            end
-        end
-    end
-
-    local tool = char:FindFirstChildOfClass("Tool")
-    if tool then
-        tool:Activate()
-        game:GetService("VirtualUser"):CaptureController()
-        game:GetService("VirtualUser"):Button1Down(Vector2.new(1280, 672))
-    end
+    end)
 end
 
 function EquipTool()
@@ -1757,14 +1817,12 @@ function EquipTool()
     local function GetWeaponType(tool)
         if tool.ToolTip then
             if string.find(tool.ToolTip, "Sword") then return "Sword" end
-            if string.find(tool.ToolTip, "Gun") then return "Gun" end
-            if string.find(tool.ToolTip, "Blox Fruit") then return "BloxFruit" end
+            if string.find(tool.ToolTip, "Blox Fruit") then return "Blox Fruit" end
             if string.find(tool.ToolTip, "Melee") then return "Melee" end
         end
 
-        if string.find(tool.Name, "Fruit") then return "BloxFruit" end
+        if string.find(tool.Name, "Fruit") then return "Blox Fruit" end
         if string.find(tool.Name, "Sword") then return "Sword" end
-        if string.find(tool.Name, "Gun") then return "Gun" end
 
         return "Melee"
     end
@@ -1883,9 +1941,7 @@ CreateToggle(TabFarm, "Tự Động Farm Level", 35, "AutoFarmLevel", function(s
                     return
                 end
 
-                local target = GetTarget()
-
-                if target then
+                if GetTarget() then
                     if not char.HumanoidRootPart:FindFirstChild("VelocityLock") then
                         local bv = Instance.new("BodyVelocity", char.HumanoidRootPart)
                         bv.Name = "VelocityLock"
@@ -1893,7 +1949,7 @@ CreateToggle(TabFarm, "Tự Động Farm Level", 35, "AutoFarmLevel", function(s
                         bv.Velocity = Vector3.new(0, 0, 0)
                     end
 
-                    AttackNormal(target)
+                    AttackWeapon()
                 else
                     if char.HumanoidRootPart:FindFirstChild("VelocityLock") then 
                         char.HumanoidRootPart.VelocityLock:Destroy() 
@@ -1908,6 +1964,39 @@ CreateToggle(TabFarm, "Tự Động Farm Level", 35, "AutoFarmLevel", function(s
             if lock then lock:Destroy() end
         end
     end)
+end)
+
+CreateToggle(TabFarm, "Tự Động Farm Rương", 85, "AutoChestFarm", function(state)
+    State.AutoChestFarm = state
+    
+    if state then
+        task.spawn(function()
+            while State.AutoChestFarm do
+                task.wait(0.1)
+                pcall(function()
+                    local char = player.Character
+                    local root = char and char:FindFirstChild("HumanoidRootPart")
+                    if not root then return end
+
+                    for _, v in pairs(workspace:GetChildren()) do
+                        if string.find(v.Name, "Chest") and (v:IsA("BasePart") or v:IsA("Model")) then
+                            local targetPos = v:IsA("Model") and v:GetModelCFrame() or v.CFrame
+                            root.CFrame = targetPos
+                            task.wait(0.15)
+                        end
+                    end
+
+                    for _, v in pairs(workspace:GetDescendants()) do
+                        if v:IsA("TouchTransmitter") and v.Parent and string.find(v.Parent.Name, "Chest") then
+                            firetouchinterest(root, v.Parent, 0)
+                            task.wait()
+                            firetouchinterest(root, v.Parent, 1)
+                        end
+                    end
+                end)
+            end
+        end)
+    end
 end)
 
 local function ApplyFruitESP(part, name)
@@ -1933,9 +2022,9 @@ local function ApplyFruitESP(part, name)
     end)
 end
 
-CreateLabel(TabRaidFruit, "Trái Ác Quỷ", 5) 
+CreateLabel(TabRaidFruitFruit, "Trái Ác Quỷ", 5) 
 
-CreateToggle(TabRaidFruit, "Tự Động Random Trái Ác Quỷ", 30, "AutoGacha", function(state)
+CreateToggle(TabRaidFruitFruit, "Tự Động Random Trái Ác Quỷ", 35, "AutoGacha", function(state)
     State.AutoGacha = state
     task.spawn(function()
         while State.AutoGacha do
@@ -1945,7 +2034,7 @@ CreateToggle(TabRaidFruit, "Tự Động Random Trái Ác Quỷ", 30, "AutoGacha
     end)
 end)
 
-CreateToggle(TabRaidFruit, "Tự Động Nhặt Trái", 85, "AutoPickUpFruit", function(state)
+CreateToggle(TabRaidFruitFruit, "Tự Động Nhặt Trái", 85, "AutoPickUpFruit", function(state)
     State.AutoPickUpFruit = state
     State.FruitESP = state
     task.spawn(function()
@@ -1972,48 +2061,193 @@ CreateToggle(TabRaidFruit, "Tự Động Nhặt Trái", 85, "AutoPickUpFruit", f
     end)
 end)
 
-CreateToggle(TabRaidFruit, "Tự Động Lưu Trữ", 115, "AutoStoreFruit", function(state)
+CreateToggle(TabRaidFruitFruit, "Tự Động Lưu Trữ Trái", 115, "AutoStoreFruit", function(state)
     State.AutoStoreFruit = state
-    task.spawn(function()
-        while State.AutoStoreFruit do
-            task.wait(1)
-            pcall(function()
-                for _, item in pairs(player.Backpack:GetChildren()) do
-                    if item:IsA("Tool") and (item.Name:find("Fruit") or item:GetAttribute("FruitName")) then
-                        local fruitName = item:GetAttribute("FruitName") or item.Name
-                        game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("StoreFruit", fruitName)
+    if state then
+        task.spawn(function()
+            while State.AutoStoreFruit do
+                pcall(function()
+                    for _, item in ipairs(player.Backpack:GetChildren()) do
+                        if item:IsA("Tool") and (item.Name:find("Fruit") or item:GetAttribute("FruitName")) then
+                            local name = item:GetAttribute("FruitName") or item:GetAttribute("OriginalName") or item.Name
+                            game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("StoreFruit", name, item)
+                        end
                     end
-                end
-                
-                local held = player.Character:FindFirstChildOfClass("Tool")
-                if held and (held.Name:find("Fruit") or held:GetAttribute("FruitName")) then
-                    local fruitName = held:GetAttribute("FruitName") or held.Name
-                    game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("StoreFruit", fruitName)
+                end)
+                task.wait(1.5)
+            end
+        end)
+        player.Character.ChildAdded:Connect(function(item)
+            if State.AutoStoreFruit and item:IsA("Tool") and (item.Name:find("Fruit") or item:GetAttribute("FruitName")) then
+                local name = item:GetAttribute("FruitName") or item:GetAttribute("OriginalName") or item.Name
+                game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("StoreFruit", name, item)
+            end
+        end)
+    end
+end)
+
+CreateToggle(TabRaidFruitFruit, "Tự Động Thả Trái", 155, "AutoDropFruit", function(state)
+    State.AutoDropFruit = state
+    if state then
+        task.spawn(function()
+            while State.AutoDropFruit do
+                pcall(function()
+                    for _, item in ipairs(player.Backpack:GetChildren()) do
+                        if item:IsA("Tool") and (item.Name:find("Fruit") or item:GetAttribute("FruitName")) then
+                            local name = item:GetAttribute("FruitName") or item:GetAttribute("OriginalName") or item.Name
+                            game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("DropFruit", name)
+                        end
+                    end
+                end)
+                task.wait(1.5)
+            end
+        end)
+        player.Character.ChildAdded:Connect(function(item)
+            if State.AutoDropFruit and item:IsA("Tool") and (item.Name:find("Fruit") or item:GetAttribute("FruitName")) then
+                local name = item:GetAttribute("FruitName") or item:GetAttribute("OriginalName") or item.Name
+                game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("DropFruit", name)
+            end
+        end)
+    end
+end)
+
+CreateLabel(TabRaidFruitFruit, "Raid Trái Ác Quỷ", 195) 
+
+CreateDropdown(TabRaidFruit, "Chọn Chip Raid", 235, Chips, "SelectChip")
+
+CreateToggle(TabRaidFruit, "Tự Động Mua Chip", 255, "AutoBuyChip", function(state)
+    State.AutoBuyChip = state
+    task.spawn(function()
+        while State.AutoBuyChip do
+            task.wait(1.5)
+            pcall(function()
+                game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("RaidsNpc", "Select", State.SelectChip)
+            end)
+        end
+    end)
+end)
+
+CreateToggle(TabRaidFruit, "Tự Động Bắt Đầu Raid", 295, "AutoStartRaid", function(state)
+    State.AutoStartRaid = state
+    task.spawn(function()
+        while State.AutoStartRaid do
+            task.wait(0.5)
+            pcall(function()
+                if not player.PlayerGui.Main.Timer.Visible then
+                    local chip = player.Backpack:FindFirstChild("Special Microchip") or player.Character:FindFirstChild("Special Microchip")
+                    if chip then
+                        if Second_Sea then
+                            fireclickdetector(workspace.Map.CircleIsland.RaidSummon2.Button.Main.ClickDetector)
+                        elseif Third_Sea then
+                            fireclickdetector(workspace.Map["Boat Castle"].RaidSummon2.Button.Main.ClickDetector)
+                        end
+                    end
                 end
             end)
         end
     end)
 end)
 
-CreateToggle(TabRaidFruit, "Tự Động Thả Trái", 155, "AutoDropFruit", function(state)
-    State.AutoDropFruit = state
+CreateToggle(TabRaidFruit, "Tự Động Farm Raid", 335, "AutoFarmRaid", function(state)
+    State.AutoFarmRaid = state
+    
     task.spawn(function()
-        while State.AutoDropFruit do
-            task.wait(1)
+        while State.AutoFarmRaid do
+            task.wait(0.1)
             pcall(function()
-                for _, item in pairs(player.Backpack:GetChildren()) do
-                    if item:IsA("Tool") and (item.Name:find("Fruit") or item:GetAttribute("FruitName")) then
-                        local fruitName = item:GetAttribute("FruitName") or item.Name
-                        game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("DropFruit", fruitName)
+                local char = player.Character
+                local root = char:FindFirstChild("HumanoidRootPart")
+                local tool = char:FindFirstChildOfClass("Tool")
+                
+                if not char or not root or not tool then return end
+
+                local target = nil
+                local dist = math.huge
+                for _, v in pairs(workspace.Enemies:GetChildren()) do
+                    if v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 and v:FindFirstChild("HumanoidRootPart") then
+                        local d = (v.HumanoidRootPart.Position - root.Position).Magnitude
+                        if d < dist then
+                            dist = d
+                            target = v
+                        end
+                    end
+                end
+
+                if target then
+                    local targetRoot = target.HumanoidRootPart
+                    
+                    root.CFrame = targetRoot.CFrame * CFrame.new(0, 11, 0)
+                    
+                    AutoHaki()
+
+                    for _, enemy in pairs(workspace.Enemies:GetChildren()) do
+                        local eRoot = enemy:FindFirstChild("HumanoidRootPart")
+                        local eHum = enemy:FindFirstChild("Humanoid")
+                        
+                        if eRoot and eHum and eHum.Health > 0 then
+                            local distToEnemy = (root.Position - eRoot.Position).Magnitude
+                            if distToEnemy < 150 then
+                                eRoot.CanCollide = false
+                                eRoot.Size = Vector3.new(60, 60, 60)
+                                
+                                game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("Attack", eRoot.Position)
+                                
+                                tool:Activate()
+                                game:GetService("VirtualUser"):CaptureController()
+                                game:GetService("VirtualUser"):Button1Down(Vector2.new(1280, 672))
+                            end
+                        end
                     end
                 end
             end)
         end
     end)
+end)
+
+CreateToggle(TabRaidFruit, "Tự Động Sang Đảo", 355, "AutoNextIsland", function(state)
+    State.AutoNextIsland = state
+    task.spawn(function()
+        while State.AutoNextIsland do
+            task.wait(1)
+            if player.PlayerGui.Main.Timer.Visible then
+                for i = 5, 1, -1 do
+                    local island = workspace["_WorldOrigin"].Locations:FindFirstChild("Island "..i)
+                    if island then
+                        Tween(island.CFrame * CFrame.new(0, 70, 100))
+                        break
+                    end
+                end
+            end
+        end
+    end)
+end)
+
+CreateToggle(TabRaidFruit, "Lấy Trái Cùi Dưới 1m Beli", 395, "GetFruitLow", function(state)
+    State.GetFruitLow = state
+    task.spawn(function()
+        while State.GetFruitLow do
+            for _, fruit in pairs(LowFruits) do
+                if not State.GetFruitLow then break end
+                game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("LoadFruit", fruit)
+                task.wait(0.5)
+            end
+            task.wait(2)
+        end
+    end)
+end)
+
+CreateButton(TabRaidFruit, "Bay Đến Phòng Để Raid", 435, function()
+    if Second_Sea then
+        Tween(CFrame.new(-6438.73, 250.64, -4501.50))
+    elseif Third_Sea then
+        game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("requestEntrance", Vector3.new(-5075.5, 314.5, -3150.0))
+        task.wait(0.1)
+        Tween(CFrame.new(-5017.4, 314.8, -2823.0))
+    end
 end)
 
 CreateLabel(TabSettings, "Cài Đặt", 5) 
-CreateWeaponDropdown(TabSettings, "Chọn Vũ Khí", 35)
+CreateDropdown(TabSettings, "Chọn Vũ Khí", 35, {"Melee", "Sword", "Blox Fruit"}, "SelectWeapon")
 
 CreateToggle(TabSettings, "FPS Boost", 85, "FPSBoost", function(state)
     if state then
