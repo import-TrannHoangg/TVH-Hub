@@ -297,7 +297,7 @@ local function CreateToggle(parent, text, y, key, callback)
 end
 
 local function CreateWeaponDropdown(parent, text, y)
-    local weapons = {"Melee", "Sword", "Blox Fruit"}
+    local weapons = {"Melee", "Sword", "BloxFruit", "Gun"}
     local isOpened = false
     
     local frame = Instance.new("Frame", parent)
@@ -1591,11 +1591,21 @@ function MaterialMon()
     end
 end
 
+local hakiCooldown = 0
+
 function AutoHaki()
-    local char = game.Players.LocalPlayer.Character
-    if char and not char:FindFirstChild("HasBuso") then
+    local player = game.Players.LocalPlayer
+    local char = player.Character
+
+    if not char or not char:FindFirstChild("Humanoid") then return end
+    if char:FindFirstChild("HasBuso") then return end
+
+    if tick() - hakiCooldown < 1 then return end
+    hakiCooldown = tick()
+
+    pcall(function()
         game.ReplicatedStorage.Remotes.CommF_:InvokeServer("Buso")
-    end
+    end)
 end
 
 local TweenSpeed = 340
@@ -1633,76 +1643,156 @@ function Tween(targetCFrame)
         end
     end)
 end
-    
-function AttackNoCoolDown()
-    local AC = CbFw2 and CbFw2.activeController
-    if not AC or not AC.attack then return end
+  
+function GetTarget()
+    local player = game.Players.LocalPlayer
+    local char = player.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return nil end
 
-    pcall(function()
-        local RigLib = require(game.ReplicatedStorage.CombatFramework.RigLib)
-        local bladehit = RigLib.getBladeHits(plr.Character, {plr.Character.HumanoidRootPart}, 100)
+    local myPos = char.HumanoidRootPart.Position
+    local closestMob, closestDist = nil, math.huge
 
-        local targets = {}
-        for _, v in pairs(bladehit) do
-            if v.Parent:FindFirstChild("HumanoidRootPart") and v.Parent.Humanoid.Health > 0 then
-                table.insert(targets, v.Parent.HumanoidRootPart)
-            end
-        end
-
-        if #targets > 0 then
-            local u8 = debug.getupvalue(AC.attack, 5)
-            local u9 = debug.getupvalue(AC.attack, 6)
-            local u7 = debug.getupvalue(AC.attack, 4)
-            local u10 = debug.getupvalue(AC.attack, 7)
-            
-            local u12 = (u8 * 798405 + u7 * 727595) % u9
-            local u13 = u7 * 798405
-            u12 = (u12 * u9 + u13) % 1099511627776
-            u8 = math.floor(u12 / u9)
-            u7 = u12 - u8 * u9
-            u10 = u10 + 1
-            
-            debug.setupvalue(AC.attack, 5, u8)
-            debug.setupvalue(AC.attack, 4, u7)
-            debug.setupvalue(AC.attack, 7, u10)
-
-            spawn(function()
-                for _, anim in pairs(AC.animator.anims.basic) do anim:Play() end
-            end)
-            
-            game.ReplicatedStorage.Remotes.Validator:FireServer(math.floor(u12 / 1099511627776 * 16777215), u10)
-            game:GetService("ReplicatedStorage").RigControllerEvent:FireServer("hit", targets, 1, "")
-        end
-    end)
-end
-
-function EquipTool()
-    local character = plr.Character
-    if not character or not character:FindFirstChild("Humanoid") then return end
-
-    if character:FindFirstChildOfClass("Tool") then return end
-
-    local weaponType = State.SelectWeapon or "Melee"
-
-    for _, tool in pairs(plr.Backpack:GetChildren()) do
-        if tool:IsA("Tool") then
-            if tool.ToolTip == weaponType or string.find(tool.Name, weaponType) then
-                character.Humanoid:EquipTool(tool)
-                break
+    for _, mob in pairs(workspace.Enemies:GetChildren()) do
+        if mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 and mob:FindFirstChild("HumanoidRootPart") then
+            local dist = (mob.HumanoidRootPart.Position - myPos).Magnitude
+            if dist < closestDist then
+                closestDist = dist
+                closestMob = mob
             end
         end
     end
+
+    if closestMob then
+        return closestMob
+    end
+
+    local closestPlayer, closestPDist = nil, 30
+    for _, plr in pairs(game.Players:GetPlayers()) do
+        if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+            local dist = (plr.Character.HumanoidRootPart.Position - myPos).Magnitude
+            if dist < closestPDist then
+                closestPDist = dist
+                closestPlayer = plr.Character
+            end
+        end
+    end
+
+    return closestPlayer
+end
+  
+function AttackNormal(target)
+    if not target then return end
+
+    local player = game.Players.LocalPlayer
+    local char = player.Character
+    if not char then return end
+
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+
+    local targetRoot = target:FindFirstChild("HumanoidRootPart")
+    local targetHumanoid = target:FindFirstChild("Humanoid")
+    if not targetRoot or not targetHumanoid or targetHumanoid.Health <= 0 then return end
+
+    root.CFrame = targetRoot.CFrame * CFrame.new(0, 15, 0)
+
+    for _, mob in pairs(workspace.Enemies:GetChildren()) do
+        if mob.Name == target.Name and mob:FindFirstChild("HumanoidRootPart") then
+            local hrp = mob.HumanoidRootPart
+            pcall(function()
+                hrp.Size = Vector3.new(60, 60, 60)
+                hrp.Transparency = 1
+                hrp.CanCollide = false
+            end)
+        end
+    end
+
+    for _, plr in pairs(game.Players:GetPlayers()) do
+        if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+            local enemyRoot = plr.Character.HumanoidRootPart
+            if (enemyRoot.Position - root.Position).Magnitude < 50 then
+                pcall(function()
+                    enemyRoot.Size = Vector3.new(8, 8, 8)
+                    enemyRoot.Transparency = 0.7
+                    enemyRoot.CanCollide = false
+                end)
+            end
+        end
+    end
+
+    local tool = char:FindFirstChildOfClass("Tool")
+    if tool then
+        tool:Activate()
+    end
 end
 
-function BringMob(targetMob, pos)
-    for _, v in pairs(workspace.Enemies:GetChildren()) do
-        if v.Name == targetMob and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 then
-            if (v.HumanoidRootPart.Position - pos.Position).Magnitude < 300 then
-                v.HumanoidRootPart.CanCollide = false
-                v.HumanoidRootPart.CFrame = pos
-                v.Humanoid.WalkSpeed = 0
-                for _, part in pairs(v:GetChildren()) do
-                    if part:IsA("BasePart") then part.CanCollide = false end
+function EquipTool()
+    local player = game.Players.LocalPlayer
+    local char = player.Character
+    if not char or not char:FindFirstChild("Humanoid") then return end
+
+    if char:FindFirstChildOfClass("Tool") then return end
+
+    local weaponType = State.SelectWeapon or "Melee"
+
+    local priority = {
+        [weaponType] = true
+    }
+
+    local function GetWeaponType(tool)
+        if tool.ToolTip then
+            if string.find(tool.ToolTip, "Sword") then return "Sword" end
+            if string.find(tool.ToolTip, "Gun") then return "Gun" end
+            if string.find(tool.ToolTip, "Blox Fruit") then return "BloxFruit" end
+            if string.find(tool.ToolTip, "Melee") then return "Melee" end
+        end
+
+        if string.find(tool.Name, "Fruit") then return "BloxFruit" end
+        if string.find(tool.Name, "Sword") then return "Sword" end
+        if string.find(tool.Name, "Gun") then return "Gun" end
+
+        return "Melee"
+    end
+
+    local selectedTool = nil
+    local fallbackTool = nil
+
+    for _, tool in pairs(player.Backpack:GetChildren()) do
+        if tool:IsA("Tool") then
+            local type = GetWeaponType(tool)
+
+            if type == weaponType then
+                selectedTool = tool
+                break
+            end
+
+            fallbackTool = fallbackTool or tool
+        end
+    end
+
+    if selectedTool then
+        char.Humanoid:EquipTool(selectedTool)
+    elseif fallbackTool then
+        char.Humanoid:EquipTool(fallbackTool)
+    end
+end
+
+function BringMob(mobName, centerCFrame)
+    for _, mob in pairs(workspace.Enemies:GetChildren()) do
+        if mob.Name == mobName
+        and mob:FindFirstChild("HumanoidRootPart")
+        and mob:FindFirstChild("Humanoid")
+        and mob.Humanoid.Health > 0 then
+
+            if (mob.HumanoidRootPart.Position - centerCFrame.Position).Magnitude < 300 then
+                mob.HumanoidRootPart.CanCollide = false
+                mob.HumanoidRootPart.CFrame = centerCFrame
+                mob.Humanoid.WalkSpeed = 0
+
+                for _, part in pairs(mob:GetChildren()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = false
+                    end
                 end
             end
         end
@@ -1732,66 +1822,80 @@ CreateToggle(TabFarm, "Tự Động Farm Level", 35, "AutoFarmLevel", function(s
     if state then
         task.spawn(function()
             while State.AutoFarmLevel do
-                task.wait()
+                task.wait(0.1)
 
                 pcall(function()
                     CheckLevel()
 
                     local player = game.Players.LocalPlayer
+                    local char = player.Character
+                    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+
+                    local root = char.HumanoidRootPart
                     local questUI = player.PlayerGui.Main.Quest
 
-                    if not questUI.Visible 
+                    if not questUI.Visible
                     or not string.find(questUI.Container.QuestTitle.Title.Text, NameMon) then
                         
                         if questUI.Visible then
                             game.ReplicatedStorage.Remotes.CommF_:InvokeServer("AbandonQuest")
                         end
-                        
+
                         Tween(CFrameQ)
 
-                        if (player.Character.HumanoidRootPart.Position - CFrameQ.Position).Magnitude < 15 then
-                            task.wait(0.2)
+                        if (root.Position - CFrameQ.Position).Magnitude < 12 then
+                            task.wait(0.3)
                             game.ReplicatedStorage.Remotes.CommF_:InvokeServer("StartQuest", NameQuest, QuestLv)
                         end
 
-                    else
-                        local TargetMob = nil
+                        return
+                    end
 
-                        for _, v in pairs(workspace.Enemies:GetChildren()) do
-                            if v.Name == NameMon
-                            and v:FindFirstChild("HumanoidRootPart")
-                            and v:FindFirstChild("Humanoid")
-                            and v.Humanoid.Health > 0 then
-                                TargetMob = v
-                                break
-                            end
+                    local target = nil
+                    local mobs = {}
+
+                    for _, v in pairs(workspace.Enemies:GetChildren()) do
+                        if v.Name == NameMon
+                        and v:FindFirstChild("Humanoid")
+                        and v:FindFirstChild("HumanoidRootPart")
+                        and v.Humanoid.Health > 0 then
+                            table.insert(mobs, v)
+                            target = target or v
                         end
+                    end
 
-                        if TargetMob then
-                            repeat
-                                task.wait()
+                    if target then
+                        repeat
+                            task.wait(0.05)
 
-                                EquipTool()
-                                AutoHaki()
+                            EquipTool()
+                            AutoHaki()
 
-                                Tween(TargetMob.HumanoidRootPart.CFrame * CFrame.new(0, 20, 0))
-                                BringMob(NameMon, TargetMob.HumanoidRootPart.CFrame)
-                                AttackNoCoolDown()
+                            Tween(target.HumanoidRootPart.CFrame * CFrame.new(0, 25, 0))
 
-                            until not State.AutoFarmLevel
-                               or TargetMob.Humanoid.Health <= 0
-                               or not TargetMob.Parent
-                        else
-                            local spawns = workspace:FindFirstChild("_WorldOrigin")
-                                and workspace._WorldOrigin:FindFirstChild("EnemySpawns")
-                                or workspace:FindFirstChild("EnemySpawns")
+                            for _, mob in pairs(mobs) do
+                                if mob.Parent and mob:FindFirstChild("HumanoidRootPart") then
+                                    mob.HumanoidRootPart.CanCollide = false
+                                    mob.HumanoidRootPart.CFrame = target.HumanoidRootPart.CFrame
+                                end
+                            end
 
-                            if spawns then
-                                for _, spawnPoint in pairs(spawns:GetChildren()) do
-                                    if string.find(spawnPoint.Name, NameMon) then
-                                        Tween(spawnPoint.CFrame * CFrame.new(0, 30, 0))
-                                        break
-                                    end
+                            AttackNormal(target)
+
+                        until not State.AutoFarmLevel
+                           or not target.Parent
+                           or target.Humanoid.Health <= 0
+
+                    else
+                        local spawns = workspace:FindFirstChild("_WorldOrigin")
+                            and workspace._WorldOrigin:FindFirstChild("EnemySpawns")
+                            or workspace:FindFirstChild("EnemySpawns")
+
+                        if spawns then
+                            for _, spawnPoint in pairs(spawns:GetChildren()) do
+                                if string.find(spawnPoint.Name, NameMon) then
+                                    Tween(spawnPoint.CFrame * CFrame.new(0, 40, 0))
+                                    break
                                 end
                             end
                         end
@@ -2000,17 +2104,7 @@ CreateToggle(TabSettings, "Anti Ban", 235, "AntiBan", function(state)
     end)
 end)
 
-CreateToggle(TabSettings, "Chống Bị Phát Hiện Dùng Script", 285, "StealthMode", function(state)
-    if not State.StealthMode then
-        for _, gui in pairs(PlayerGui:GetChildren()) do
-            if gui:IsA("ScreenGui") then
-                gui.Enabled = true
-            end
-        end
-    end
-end)
-
-CreateToggle(TabSettings, "Anti AFK", 315, "AntiAFK", function(state)
+CreateToggle(TabSettings, "Anti AFK", 285, "AntiAFK", function(state)
     if not state then return end
 
     local vu = game:GetService("VirtualUser")
