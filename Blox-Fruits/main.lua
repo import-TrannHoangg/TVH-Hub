@@ -34,6 +34,11 @@ local State = {
     StealthMode = true,
     AutoFarmLevel = false,
     AutoFarmBoss = false,
+    FruitESP = false,
+    AutoGacha = false,
+    AutoPickUpFruit = false,
+    AutoStoreFruit = false,
+    AutoDropFruit = false,
     SelectWeapon = "Melee"
 }
 
