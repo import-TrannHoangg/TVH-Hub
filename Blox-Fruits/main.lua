@@ -4,7 +4,7 @@ end
 
 getgenv().Settings = {
     JoinTeam = true,
-    Team = "Prirates"
+    Team = "Pirates"
 }
 
 local Lighting = game:GetService("Lighting")
