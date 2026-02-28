@@ -25,13 +25,7 @@ if getgenv().Settings.JoinTeam then
 end
 
 local State = {
-    MobileMode = false,
-    HiddenIsland = false,
-    FPSBoost = true,
-    FixLagMode = false,
-    AntiAFK = true,
-    AntiBan = true,
-    StealthMode = true,
+    SelectWeapon = "Melee",
     AutoFarmLevel = false,
     AutoChestFarm = false,
     FruitESP = false,
@@ -44,7 +38,13 @@ local State = {
     AutoFarmRaid = false,
     AutoNextIsland = false,
     GetFruitLow = false,
-    SelectWeapon = "Melee"
+    MobileMode = false,
+    HiddenIsland = false,
+    FPSBoost = true,
+    FixLagMode = false,
+    AntiAFK = true,
+    AntiBan = true,
+    StealthMode = true
 }
 
 local KnownAdmins = {
@@ -57,6 +57,13 @@ local KnownAdmins = {
 local Chips = {"Flame", "Ice", "Quake", "Light", "Dark", "Spider", "Rumble", "Magma", "Buddha", "Sand", "Phoenix", "Dough"}
 local LowFruits = {"Rocket-Rocket", "Spin-Spin", "Chop-Chop", "Spring-Spring", "Bomb-Bomb", "Smoke-Smoke", "Spike-Spike", "Flame-Flame", "Falcon-Falcon", "Ice-Ice", "Sand-Sand", "Dark-Dark", "Ghost-Ghost", "Diamond-Diamond", "Light-Light", "Rubber-Rubber", "Creation-Creation"}
 local SelectChip = "Dark"
+
+local AllCodes = {
+    "REWARD_FUN", "CHANDLER", "NEW_UPDATE", "KITT_RESET", "Sub2CaptainMaui",
+    "DEVSCOOKING", "Sub2Fer999", "Enyu_is_Pro", "Magicbus", "JCWK",
+    "Starcodeheo", "Sub2OfficialNoobie", "BIGNEWS", "FUDD10", "SUB2GAMERROBOT_EXP1",
+    "StrawHatMaine", "Sub2UncleKizaru", "Sub2NoobMaster123", "Sub2Daigrock", "Axiore", "TantaiGaming"
+}
 
 local TabIcons = {
     ["Tab Farm"] = "rbxassetid://70492079783125",
@@ -2378,6 +2385,17 @@ CreateToggle(TabSettings, "Anti AFK", 285, "AntiAFK", function(state)
             vu:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
             task.wait(1)
             vu:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+        end
+    end)
+end)
+
+CreateButton(TabSettings, "Nhập Tất Cả Code", 315, function()
+    task.spawn(function()
+        for _, code in pairs(AllCodes) do
+            pcall(function()
+                game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("Redeem", code)
+            end)
+            task.wait(0.5)
         end
     end)
 end)
