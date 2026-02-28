@@ -1804,69 +1804,77 @@ end)
 
 CreateToggle(TabFarm, "Tự Động Farm Level", 35, "AutoFarmLevel", function(state)
     State.AutoFarmLevel = state
+
     if state then
         task.spawn(function()
             while State.AutoFarmLevel do
                 task.wait()
+
                 pcall(function()
                     CheckLevel()
 
                     local player = game.Players.LocalPlayer
                     local questUI = player.PlayerGui.Main.Quest
 
-                    if not questUI.Visible or not string.find(questUI.Container.QuestTitle.Title.Text, NameMon) then
+                    if not questUI.Visible 
+                    or not string.find(questUI.Container.QuestTitle.Title.Text, NameMon) then
+                        
                         if questUI.Visible then
                             game.ReplicatedStorage.Remotes.CommF_:InvokeServer("AbandonQuest")
                         end
                         
                         Tween(CFrameQ)
+
                         if (player.Character.HumanoidRootPart.Position - CFrameQ.Position).Magnitude < 15 then
                             task.wait(0.2)
                             game.ReplicatedStorage.Remotes.CommF_:InvokeServer("StartQuest", NameQuest, QuestLv)
                         end
+
                     else
                         local TargetMob = nil
+
                         for _, v in pairs(workspace.Enemies:GetChildren()) do
-                            if v.Name == NameMon and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 then
+                            if v.Name == NameMon
+                            and v:FindFirstChild("HumanoidRootPart")
+                            and v:FindFirstChild("Humanoid")
+                            and v.Humanoid.Health > 0 then
                                 TargetMob = v
                                 break
                             end
                         end
 
                         if TargetMob then
-                                    task.wait()
+                            repeat
+                                task.wait()
 
-                                    EquipTool()
-                                    AutoHaki()
-                                    Tween(mob.HumanoidRootPart.CFrame * CFrame.new(0, 20, 0))
-                                    BringMob(NameMon, mob.HumanoidRootPart.CFrame)
-                                    AttackNoCoolDown()
+                                EquipTool()
+                                AutoHaki()
 
-                                until not State.AutoFarmLevel
-                                or mob.Humanoid.Health <= 0
-                                or not mob.Parent
+                                Tween(TargetMob.HumanoidRootPart.CFrame * CFrame.new(0, 20, 0))
+                                BringMob(NameMon, TargetMob.HumanoidRootPart.CFrame)
+                                AttackNoCoolDown()
 
-                            end
-                        end
+                            until not State.AutoFarmLevel
+                               or TargetMob.Humanoid.Health <= 0
+                               or not TargetMob.Parent
+                        else
+                            local spawns = workspace:FindFirstChild("_WorldOrigin")
+                                and workspace._WorldOrigin:FindFirstChild("EnemySpawns")
+                                or workspace:FindFirstChild("EnemySpawns")
 
-                            local spawns = workspace:FindFirstChild("_WorldOrigin") and workspace._WorldOrigin:FindFirstChild("EnemySpawns") or workspace:FindFirstChild("EnemySpawns")
-                            
                             if spawns then
                                 for _, spawnPoint in pairs(spawns:GetChildren()) do
                                     if string.find(spawnPoint.Name, NameMon) then
                                         Tween(spawnPoint.CFrame * CFrame.new(0, 30, 0))
                                         break
+                                    end
+                                end
                             end
                         end
                     end
                 end)
-                task.wait()
             end
         end)
-    end
-end)nd)
-    end
-end)nd)
     end
 end)
 
