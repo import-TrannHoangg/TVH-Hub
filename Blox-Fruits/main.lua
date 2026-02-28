@@ -7,24 +7,6 @@ local HttpService = game:GetService("HttpService")
 local UIS = game:GetService("UserInputService")
 local player = Players.LocalPlayer
 
-local Settings = {
-    JoinTeam = "Pirates";
-    Translator = true;
-}
-
-task.spawn(function()
-    while task.wait(1) do
-        if game:GetService("Players").LocalPlayer.Team == nil then
-            local teamName = (Settings.JoinTeam == "Marines") and "濃 Marines" or "濃 Pirates"
-            pcall(function()
-                game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("SetTeam", teamName)
-            end)
-        else
-            break
-        end
-    end
-end)
-
 local State = {
     MobileMode = false,
     HiddenIsland = false,
@@ -328,7 +310,7 @@ local function CreateWeaponDropdown(parent, text, y)
     local label = Instance.new("TextLabel", frame)
     label.Size = UDim2.new(1, -60, 0, 45)
     label.Position = UDim2.new(0, 15, 0, 0)
-    label.Text = text .. ": " .. State.SelectWeapon
+    label.Text = text .. " : " .. State.SelectWeapon
     label.TextColor3 = Color3.fromRGB(0, 255, 255)
     label.Font = Enum.Font.GothamBold
     label.TextSize = 14
