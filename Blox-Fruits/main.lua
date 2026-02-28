@@ -33,17 +33,17 @@ local State = {
     AntiBan = true,
     StealthMode = true,
     AutoFarmLevel = false,
-    State.AutoChestFarm = false,
+    AutoChestFarm = false,
     FruitESP = false,
     AutoGacha = false,
     AutoPickUpFruit = false,
     AutoStoreFruit = false,
     AutoDropFruit = false,
-    State.AutoBuyChip = false,
-    State.AutoStartRaid = false,
-    State.AutoFarmRaid = false,
-    State.AutoNextIsland = false,
-    State.GetFruitLow = false,
+    AutoBuyChip = false,
+    AutoStartRaid = false,
+    AutoFarmRaid = false,
+    AutoNextIsland = false,
+    GetFruitLow = false,
     SelectWeapon = "Melee"
 }
 
