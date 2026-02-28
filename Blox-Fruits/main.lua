@@ -1,3 +1,12 @@
+if not game:IsLoaded() then
+    game.Loaded:Wait()
+end
+
+getgenv().Settings = {
+    JoinTeam = true,
+    Team = "Marines"
+}
+
 local Lighting = game:GetService("Lighting")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
@@ -5,7 +14,15 @@ local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local HttpService = game:GetService("HttpService")
 local UIS = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local player = Players.LocalPlayer
+
+if getgenv().Settings.JoinTeam then
+    local args = {
+        getgenv().Settings.Team
+    }
+    ReplicatedStorage.Remotes.CommF_:InvokeServer("SetTeam", unpack(args))
+end
 
 local State = {
     MobileMode = false,
@@ -1906,80 +1923,101 @@ CreateToggle(TabFarm, "Tự Động Farm Level", 35, "AutoFarmLevel", function(s
     end
 end)
 
-CreateToggle(TabFarm, "Tự Động Farm Level", 35, "AutoFarmLevel", function(state)
-    State.AutoFarmLevel = state
+local function ApplyFruitESP(part, name)
+    if part:FindFirstChild("FruitESP") then return end
+    local bgu = Instance.new("BillboardGui", part)
+    bgu.Name = "FruitESP"
+    bgu.AlwaysOnTop = true
+    bgu.Size = UDim2.new(0, 100, 0, 50)
+    bgu.MaxDistance = 10000
+    local lbl = Instance.new("TextLabel", bgu)
+    lbl.BackgroundTransparency = 1
+    lbl.Size = UDim2.new(1, 0, 1, 0)
+    lbl.TextColor3 = Color3.fromRGB(255, 255, 0)
+    lbl.Font = Enum.Font.GothamBold
+    lbl.TextSize = 14
+    task.spawn(function()
+        while part and part.Parent and State.FruitESP do
+            local dist = math.floor((player.Character.HumanoidRootPart.Position - part.Position).Magnitude)
+            lbl.Text = name .. " (" .. dist .. "m)"
+            task.wait(0.2)
+        end
+        bgu:Destroy()
+    end)
+end
 
-    if state then
-        task.spawn(function()
-            while State.AutoFarmLevel do
-                task.wait()
+CreateLabel(TabFarm, "Trái Ác Quỷ", 5) 
 
-                pcall(function()
-                    CheckLevel()
+CreateToggle(TabRaidFruit, "Tự Động Random Trái Ác Quỷ", 30, "AutoGacha", function(state)
+    State.AutoGacha = state
+    task.spawn(function()
+        while State.AutoGacha do
+            ReplicatedStorage.Remotes.CommF_:InvokeServer("Cousin", "Buy")
+            task.wait(10)
+        end
+    end)
+end)
 
-                    local player = game.Players.LocalPlayer
-                    local questUI = player.PlayerGui.Main.Quest
-
-                    if not questUI.Visible 
-                    or not string.find(questUI.Container.QuestTitle.Title.Text, NameMon) then
-                        
-                        if questUI.Visible then
-                            game.ReplicatedStorage.Remotes.CommF_:InvokeServer("AbandonQuest")
-                        end
-                        
-                        Tween(CFrameQ)
-
-                        if (player.Character.HumanoidRootPart.Position - CFrameQ.Position).Magnitude < 15 then
-                            task.wait(0.2)
-                            game.ReplicatedStorage.Remotes.CommF_:InvokeServer("StartQuest", NameQuest, QuestLv)
-                        end
-
-                    else
-                        local TargetMob = nil
-
-                        for _, v in pairs(workspace.Enemies:GetChildren()) do
-                            if v.Name == NameMon
-                            and v:FindFirstChild("HumanoidRootPart")
-                            and v:FindFirstChild("Humanoid")
-                            and v.Humanoid.Health > 0 then
-                                TargetMob = v
-                                break
-                            end
-                        end
-
-                        if TargetMob then
-                            repeat
-                                task.wait()
-
-                                EquipTool()
-                                AutoHaki()
-
-                                Tween(TargetMob.HumanoidRootPart.CFrame * CFrame.new(0, 20, 0))
-                                BringMob(NameMon, TargetMob.HumanoidRootPart.CFrame)
-                                AttackNoCoolDown()
-
-                            until not State.AutoFarmLevel
-                               or TargetMob.Humanoid.Health <= 0
-                               or not TargetMob.Parent
-                        else
-                            local spawns = workspace:FindFirstChild("_WorldOrigin")
-                                and workspace._WorldOrigin:FindFirstChild("EnemySpawns")
-                                or workspace:FindFirstChild("EnemySpawns")
-
-                            if spawns then
-                                for _, spawnPoint in pairs(spawns:GetChildren()) do
-                                    if string.find(spawnPoint.Name, NameMon) then
-                                        Tween(spawnPoint.CFrame * CFrame.new(0, 30, 0))
-                                        break
-                                    end
-                                end
-                            end
-                        end
+CreateToggle(TabRaidFruit, "Tự Động Nhặt Trái", 85, "AutoPickUpFruit", function(state)
+    State.AutoPickUpFruit = state
+    State.FruitESP = state
+    task.spawn(function()
+        while State.AutoPickUpFruit do
+            for _, v in pairs(workspace:GetChildren()) do
+                local isFruit = false
+                local name = ""
+                if v:IsA("Tool") and v.Name:find("Fruit") then
+                    isFruit, name = true, v.Name
+                elseif v:IsA("Model") and (v.Name == "Fruit" or v.Name == "fruit") then
+                    isFruit, name = true, "Trái Ác Quỷ"
+                end
+                
+                if isFruit then
+                    local h = v:FindFirstChild("Handle") or v:FindFirstChildOfClass("BasePart")
+                    if h then
+                        ApplyFruitESP(h, name)
+                        h.CFrame = player.Character.HumanoidRootPart.CFrame
                     end
-                end)
+                end
             end
-        end)
-    end
+            task.wait(0.5)
+        end
+    end)
+end)
+
+CreateToggle(TabRaidFruit, "Tự Động Lưu Trữ Trái", 115, "AutoStoreFruit", function(state)
+    State.AutoStoreFruit = state
+    task.spawn(function()
+        while State.AutoStoreFruit do
+            for _, item in pairs(player.Backpack:GetChildren()) do
+                if item:IsA("Tool") and (item.Name:find("Fruit") or item:GetAttribute("FruitName")) then
+                    local fName = item:GetAttribute("FruitName") or item.Name
+                    ReplicatedStorage.Remotes.CommF_:InvokeServer("StoreFruit", fName, item)
+                end
+            end
+            local held = player.Character:FindFirstChildOfClass("Tool")
+            if held and (held.Name:find("Fruit") or held:GetAttribute("FruitName")) then
+                ReplicatedStorage.Remotes.CommF_:InvokeServer("StoreFruit", held:GetAttribute("FruitName") or held.Name, held)
+            end
+            task.wait(1)
+        end
+    end)
+end)
+
+CreateToggle(TabRaidFruit, "Tự Động Thả Trái", 155, "AutoDropFruit", function(state)
+    State.AutoDropFruit = state
+    task.spawn(function()
+        while State.AutoDropFruit do
+            for _, item in pairs(player.Backpack:GetChildren()) do
+                if item:IsA("Tool") and item.Name:find("Fruit") then
+                    item.Parent = player.Character
+                    task.wait(0.1)
+                    ReplicatedStorage.Remotes.CommF_:InvokeServer("DropFruit", item.Name)
+                end
+            end
+            task.wait(1)
+        end
+    end)
 end)
 
 CreateLabel(TabSettings, "Cài Đặt", 5) 
