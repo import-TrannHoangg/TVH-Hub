@@ -37,6 +37,7 @@ local State = {
     AutoStartRaid = false,
     AutoFarmRaid = false,
     AutoNextIsland = false,
+    AutoAwakening = false,
     GetFruitLow = false,
     MobileMode = false,
     HiddenIsland = false,
@@ -1767,47 +1768,6 @@ function GetTarget()
     return closestMob
 end
 
-function AttackWeapon()
-    pcall(function()
-        local char = player.Character
-        local root = char:FindFirstChild("HumanoidRootPart")
-        local hum = char:FindFirstChild("Humanoid")
-        local tool = char:FindFirstChildOfClass("Tool")
-
-        if not char or not root or hum.Health <= 0 then return end
-
-        local target = GetTarget()
-        if not target then return end
-        
-        local targetRoot = target:FindFirstChild("HumanoidRootPart")
-        local targetHum = target:FindFirstChild("Humanoid")
-
-        if targetRoot and targetHum.Health > 0 then
-            root.CFrame = targetRoot.CFrame * CFrame.new(0, 11 , 0)
-            
-            for _, v in pairs(workspace.Enemies:GetChildren()) do
-                local eRoot = v:FindFirstChild("HumanoidRootPart")
-                local eHum = v:FindFirstChild("Humanoid")
-
-                if eRoot and eHum and eHum.Health > 0 then
-                    local dist = (root.Position - eRoot.Position).Magnitude
-                    if dist < 20 then
-                        eRoot.CanCollide = false
-                        eRoot.Size = Vector3.new(60, 60, 60)
-                        
-                        if tool then
-                            game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("Attack", eRoot.Position)
-                            tool:Activate()
-                            game:GetService("VirtualUser"):CaptureController()
-                            game:GetService("VirtualUser"):Button1Down(Vector2.new(1280, 672))
-                        end
-                    end
-                end
-            end
-        end
-    end)
-end
-
 function EquipTool()
     local player = game.Players.LocalPlayer
     local char = player.Character
@@ -1857,26 +1817,123 @@ function EquipTool()
     end
 end
 
+function AttackWeapon()
+    pcall(function()
+        local char = game.Players.LocalPlayer.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        local tool = char and char:FindFirstChildOfClass("Tool")
+        
+        if not root or not tool then return end
+
+        local targetList = {}
+        local allEnemies = game:GetService("Workspace").Enemies:GetChildren()
+        
+        for _, enemy in pairs(allEnemies) do
+            local eRoot = enemy:FindFirstChild("HumanoidRootPart")
+            local eHum = enemy:FindFirstChild("Humanoid")
+            if eRoot and eHum and eHum.Health > 0 then
+                if (root.Position - eRoot.Position).Magnitude < 70 then
+                    table.insert(targetList, eRoot)
+                end
+            end
+        end
+
+        if #targetList > 0 then
+            local ReplicatedStorage = game:GetService("ReplicatedStorage")
+            local NetPath = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Net")
+            local RegisterAttack = NetPath:WaitForChild("RE/RegisterAttack")
+            local RegisterHit = NetPath:WaitForChild("RE/RegisterHit")
+
+            RegisterAttack:FireServer(1e-9)
+            
+            RegisterHit:FireServer(tool, targetList)
+            
+            tool:Activate()
+        end
+    end)
+end
+
+function AutoNear()
+    pcall(function()
+        local FAST_DELAY = 0.1
+        local ATTACK_RANGE = 5000 
+        local BRING_MOB_RADIUS = 300
+        
+        for _, mob in pairs(game.Workspace.Enemies:GetChildren()) do
+            if mob:FindFirstChild("Humanoid") and mob:FindFirstChild("HumanoidRootPart") and mob.Humanoid.Health > 0 then
+                
+                local root = game.Players.LocalPlayer.Character.HumanoidRootPart
+                local mobRoot = mob.HumanoidRootPart
+                
+                if (root.Position - mobRoot.Position).Magnitude <= ATTACK_RANGE then
+                    
+                    repeat
+                        task.wait(FAST_DELAY)
+                        
+                        AttackNoCoolDown()
+                        AutoHaki()
+                        EquipTool() 
+                        
+                        local farmCFrame = mobRoot.CFrame
+                        Tween(farmCFrame * (Pos or CFrame.new(0, 11, 0)))
+                        
+                        for _, nearbyMob in pairs(game.Workspace.Enemies:GetChildren()) do
+                            if nearbyMob:FindFirstChild("HumanoidRootPart") and nearbyMob.Humanoid.Health > 0 then
+                                if (nearbyMob.HumanoidRootPart.Position - farmCFrame.Position).Magnitude < BRING_MOB_RADIUS then
+                                    nearbyMob.HumanoidRootPart.CanCollide = false
+                                    nearbyMob.HumanoidRootPart.CFrame = farmCFrame * CFrame.new(0, 0, 0.1)
+                                end
+                            end
+                        end
+                        
+                        if mobRoot.Size ~= Vector3.new(60, 60, 60) then
+                            mobRoot.Size = Vector3.new(60, 60, 60)
+                            mobRoot.Transparency = 1
+                            mobRoot.CanCollide = false
+                            mob.Humanoid.WalkSpeed = 0
+                        end
+                        
+                    until not State.AutoNear 
+                    or not mob.Parent 
+                    or mob.Humanoid.Health <= 0 
+                    or not game.Workspace.Enemies:FindFirstChild(mob.Name)
+                end
+            end
+            
+            if not State.AutoNear then break end
+        end
+    end)
+end
+
 function BringMob(mobName, centerCFrame)
-    for _, mob in pairs(workspace.Enemies:GetChildren()) do
-        if mob.Name == mobName
-        and mob:FindFirstChild("HumanoidRootPart")
-        and mob:FindFirstChild("Humanoid")
-        and mob.Humanoid.Health > 0 then
+    pcall(function()
+        sethiddenproperty(game.Players.LocalPlayer, "SimulationRadius", math.huge)
 
-            if (mob.HumanoidRootPart.Position - centerCFrame.Position).Magnitude < 300 then
-                mob.HumanoidRootPart.CanCollide = false
-                mob.HumanoidRootPart.CFrame = centerCFrame
-                mob.Humanoid.WalkSpeed = 0
+        for _, mob in pairs(workspace.Enemies:GetChildren()) do
+            if mob.Name == mobName 
+            and mob:FindFirstChild("HumanoidRootPart") 
+            and mob:FindFirstChild("Humanoid") 
+            and mob.Humanoid.Health > 0 then
 
-                for _, part in pairs(mob:GetChildren()) do
-                    if part:IsA("BasePart") then
-                        part.CanCollide = false
+                local mobRoot = mob.HumanoidRootPart
+                if (mobRoot.Position - centerCFrame.Position).Magnitude < 300 then
+                    
+                    mobRoot.CanCollide = false
+                    
+                    mobRoot.CFrame = centerCFrame * CFrame.Angles(0, math.rad(mobRoot.Orientation.Y), 0)
+                    
+                    mob.Humanoid.WalkSpeed = 0
+                    mob.Humanoid.JumpPower = 0
+
+                    for _, part in pairs(mob:GetChildren()) do
+                        if part:IsA("BasePart") then
+                            part.CanCollide = false
+                        end
                     end
                 end
             end
         end
-    end
+    end)
 end
 
 local State = _G.State or {}
@@ -1925,41 +1982,49 @@ CreateLabel(TabFarm, "Tự Động Farm", 5)
 
 CreateToggle(TabFarm, "Tự Động Farm Level", 35, "AutoFarmLevel", function(state)
     State.AutoFarmLevel = state
-    
+
     task.spawn(function()
         while State.AutoFarmLevel do
             task.wait()
             pcall(function()
                 local char = player.Character
-                if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+                local root = char and char:FindFirstChild("HumanoidRootPart")
+                if not root then return end
 
                 CheckLevel() 
                 local questUI = player.PlayerGui.Main.Quest
+                
                 if not questUI.Visible or not string.find(questUI.Container.QuestTitle.Title.Text, NameMon) then
-                    if char.HumanoidRootPart:FindFirstChild("VelocityLock") then 
-                        char.HumanoidRootPart.VelocityLock:Destroy() 
+                    if root:FindFirstChild("VelocityLock") then 
+                        root.VelocityLock:Destroy() 
                     end
                     
                     Tween(CFrameQ)
-                    if (char.HumanoidRootPart.Position - CFrameQ.Position).Magnitude < 15 then
+                    if (root.Position - CFrameQ.Position).Magnitude < 15 then
                         task.wait(0.2)
-                        ReplicatedStorage.Remotes.CommF_:InvokeServer("StartQuest", NameQuest, QuestLv)
+                        game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("StartQuest", NameQuest, QuestLv)
                     end
                     return
                 end
 
-                if GetTarget() then
-                    if not char.HumanoidRootPart:FindFirstChild("VelocityLock") then
-                        local bv = Instance.new("BodyVelocity", char.HumanoidRootPart)
+                local target = GetTarget()
+                if target and target:FindFirstChild("HumanoidRootPart") then
+                    if not root:FindFirstChild("VelocityLock") then
+                        local bv = Instance.new("BodyVelocity", root)
                         bv.Name = "VelocityLock"
                         bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
                         bv.Velocity = Vector3.new(0, 0, 0)
                     end
 
+                    root.CFrame = target.HumanoidRootPart.CFrame * CFrame.new(0, 11, 0)
+
+                    BringMob(NameMon, target.HumanoidRootPart.CFrame)
+                    EquipTool()
+                    AutoHaki()
                     AttackWeapon()
                 else
-                    if char.HumanoidRootPart:FindFirstChild("VelocityLock") then 
-                        char.HumanoidRootPart.VelocityLock:Destroy() 
+                    if root:FindFirstChild("VelocityLock") then 
+                        root.VelocityLock:Destroy() 
                     end
                     Tween(CFrameMon)
                 end
@@ -1973,7 +2038,7 @@ CreateToggle(TabFarm, "Tự Động Farm Level", 35, "AutoFarmLevel", function(s
     end)
 end)
 
-CreateToggle(TabFarm, "Tự Động Farm Rương", 85, "AutoChestFarm", function(state)
+CreateToggle(TabFarm, "Tự Động Farm Rương & Đổi Server", 85, "AutoChestFarm", function(state)
     State.AutoChestFarm = state
     
     if state then
@@ -1981,26 +2046,45 @@ CreateToggle(TabFarm, "Tự Động Farm Rương", 85, "AutoChestFarm", function
             while State.AutoChestFarm do
                 task.wait(0.1)
                 pcall(function()
-                    local char = player.Character
+                    local char = game.Players.LocalPlayer.Character
                     local root = char and char:FindFirstChild("HumanoidRootPart")
                     if not root then return end
 
-                    for _, v in pairs(workspace:GetChildren()) do
-                        if string.find(v.Name, "Chest") and (v:IsA("BasePart") or v:IsA("Model")) then
-                            local targetPos = v:IsA("Model") and v:GetModelCFrame() or v.CFrame
-                            root.CFrame = targetPos
-                            task.wait(0.15)
-                        end
+                    if not root:FindFirstChild("ChestVelocity") then
+                        local bv = Instance.new("BodyVelocity", root)
+                        bv.Name = "ChestVelocity"
+                        bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+                        bv.Velocity = Vector3.new(0, 0, 0)
                     end
+                    
+                    root.CanCollide = false
 
                     for _, v in pairs(workspace:GetDescendants()) do
+                        if not State.AutoChestFarm then break end
                         if v:IsA("TouchTransmitter") and v.Parent and string.find(v.Parent.Name, "Chest") then
+                            root.CFrame = v.Parent.CFrame
                             firetouchinterest(root, v.Parent, 0)
-                            task.wait()
+                            task.wait(0.1)
                             firetouchinterest(root, v.Parent, 1)
                         end
                     end
                 end)
+            end
+        end)
+
+    else
+        pcall(function()
+            local char = game.Players.LocalPlayer.Character
+            local root = char and char:FindFirstChild("HumanoidRootPart")
+            
+            if root then
+                if root:FindFirstChild("ChestVelocity") then
+                    root.ChestVelocity:Destroy()
+                end
+                
+                root.CanCollide = true
+                
+                char.Humanoid.PlatformStand = false
             end
         end)
     end
@@ -2155,81 +2239,86 @@ CreateToggle(TabRaidFruit, "Tự Động Bắt Đầu Raid", 295, "AutoStartRaid
     end)
 end)
 
-CreateToggle(TabRaidFruit, "Tự Động Farm Raid", 335, "AutoFarmRaid", function(state)
+local IslandVisited = {}
+
+CreateToggle(TabRaidFruit, "Tự Động Farm Raid & Qua Đảo", 335, "AutoFarmRaid", function(state)
     State.AutoFarmRaid = state
     
-    task.spawn(function()
-        while State.AutoFarmRaid do
-            task.wait(0.1)
-            pcall(function()
-                local char = player.Character
-                local root = char:FindFirstChild("HumanoidRootPart")
-                local tool = char:FindFirstChildOfClass("Tool")
-                
-                if not char or not root or not tool then return end
+    if state then
+        task.spawn(function()
+            while State.AutoFarmRaid do
+                task.wait()
+                pcall(function()
+                    local char = game.Players.LocalPlayer.Character
+                    local root = char and char:FindFirstChild("HumanoidRootPart")
+                    if not root then return end
 
-                local target = nil
-                local dist = math.huge
-                for _, v in pairs(workspace.Enemies:GetChildren()) do
-                    if v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 and v:FindFirstChild("HumanoidRootPart") then
-                        local d = (v.HumanoidRootPart.Position - root.Position).Magnitude
-                        if d < dist then
-                            dist = d
-                            target = v
+                    local locations = workspace:WaitForChild("_WorldOrigin"):WaitForChild("Locations")
+                    local myPos = root.Position
+
+                    if (myPos - Vector3.new(-6438.7, 250.6, -4501.5)).Magnitude < 10 or 
+                       (myPos - Vector3.new(-5017.4, 314.8, -2823.0)).Magnitude < 10 then
+                        IslandVisited = {}
+                    end
+
+                    local hasMonster = false
+                    for _, v in pairs(workspace.Enemies:GetChildren()) do
+                        if v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
+                            hasMonster = true
+                            break
                         end
                     end
-                end
 
-                if target then
-                    local targetRoot = target.HumanoidRootPart
-                    
-                    root.CFrame = targetRoot.CFrame * CFrame.new(0, 11, 0)
-                    
-                    AutoHaki()
+                    if hasMonster then
+                        AutoHaki()
+                        EquipTool()
+                        AutoNear()
+                    else
+                        for i = 5, 1, -1 do
+                            local name = "Island " .. i
+                            local island = locations:FindFirstChild(name)
+                            
+                            if island and not IslandVisited[name] then
+                                if root:FindFirstChild("RaidVelocity") then
+                                    root.RaidVelocity:Destroy()
+                                end
 
-                    for _, enemy in pairs(workspace.Enemies:GetChildren()) do
-                        local eRoot = enemy:FindFirstChild("HumanoidRootPart")
-                        local eHum = enemy:FindFirstChild("Humanoid")
-                        
-                        if eRoot and eHum and eHum.Health > 0 then
-                            local distToEnemy = (root.Position - eRoot.Position).Magnitude
-                            if distToEnemy < 150 then
-                                eRoot.CanCollide = false
-                                eRoot.Size = Vector3.new(60, 60, 60)
+                                Tween(island.CFrame * CFrame.new(0, 70, 0))
                                 
-                                game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("Attack", eRoot.Position)
-                                
-                                tool:Activate()
-                                game:GetService("VirtualUser"):CaptureController()
-                                game:GetService("VirtualUser"):Button1Down(Vector2.new(1280, 672))
+                                IslandVisited[name] = true
+                                task.wait(2)
+                                break
                             end
                         end
                     end
-                end
+                end)
+            end
+        end)
+    else
+        pcall(function()
+            IslandVisited = {}
+            local root = game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if root and root:FindFirstChild("RaidVelocity") then
+                root.RaidVelocity:Destroy()
+            end
+        end)
+    end
+end)
+
+CreateToggle(TabRaidFruit, "Tự Động Thức Tỉnh Chiêu", 355, "AutoAwakening", function(state)
+    State.AutoAwakening = state
+    
+    task.spawn(function()
+        while State.AutoAwakening do
+            task.wait(2) 
+            pcall(function()
+                game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("Awakener", "Awaken")
             end)
         end
     end)
 end)
 
-CreateToggle(TabRaidFruit, "Tự Động Sang Đảo", 355, "AutoNextIsland", function(state)
-    State.AutoNextIsland = state
-    task.spawn(function()
-        while State.AutoNextIsland do
-            task.wait(1)
-            if player.PlayerGui.Main.Timer.Visible then
-                for i = 5, 1, -1 do
-                    local island = workspace["_WorldOrigin"].Locations:FindFirstChild("Island "..i)
-                    if island then
-                        Tween(island.CFrame * CFrame.new(0, 70, 100))
-                        break
-                    end
-                end
-            end
-        end
-    end)
-end)
-
-CreateToggle(TabRaidFruit, "Lấy Trái Cùi Dưới 1m Beli", 395, "GetFruitLow", function(state)
+CreateToggle(TabRaidFruit, "Lấy Trái Cùi Dưới 1 Triệu Beli", 395, "GetFruitLow", function(state)
     State.GetFruitLow = state
     task.spawn(function()
         while State.GetFruitLow do
