@@ -311,7 +311,7 @@ local function CreateWeaponDropdown(parent, text, y)
     label.Size = UDim2.new(1, -60, 0, 45)
     label.Position = UDim2.new(0, 15, 0, 0)
     label.Text = text .. " : " .. State.SelectWeapon
-    label.TextColor3 = Color3.fromRGB(0, 255, 255)
+    label.TextColor3 = Color3.fromRGB(220, 220, 220)
     label.Font = Enum.Font.GothamBold
     label.TextSize = 14
     label.TextXAlignment = Enum.TextXAlignment.Left
@@ -321,7 +321,7 @@ local function CreateWeaponDropdown(parent, text, y)
     local toggleBtn = Instance.new("TextButton", frame)
     toggleBtn.Size = UDim2.new(0, 30, 0, 30)
     toggleBtn.Position = UDim2.new(1, -40, 0, 7.5)
-    toggleBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    toggleBtn.BackgroundColor3 = Color3.fromRGB(0, 255, 255) or Color3.fromRGB(60, 60, 60)
     toggleBtn.Text = "v"
     toggleBtn.TextColor3 = Color3.new(1, 1, 1)
     toggleBtn.Font = Enum.Font.GothamBold
