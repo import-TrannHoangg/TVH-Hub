@@ -526,7 +526,7 @@ local TabFarm = CreateTab("Tab Farm", 1)
 local TabQuestsItem = CreateTab("Tab Nhiệm Vụ, Item", 2)
 local TabFishing = CreateTab("Tab Câu Cá", 3)
 local TabSeaEvent = CreateTab("Tab Sự Kiện Sea", 4)
-local TabRaidFruitFruit = CreateTab("Tab Raid/Trái", 5)
+local TabRaidFruit = CreateTab("Tab Raid/Trái", 5)
 local TabStats= CreateTab("Tab Chỉ Số", 6)
 local TabTeleport = CreateTab("Tab Dịch Chuyển", 7)
 local TabStatus = CreateTab("Tab Trạng Thái", 8)
@@ -1773,13 +1773,10 @@ function EquipTool()
     local char = player.Character
     if not char or not char:FindFirstChild("Humanoid") then return end
 
-    if char:FindFirstChildOfClass("Tool") then return end
+    local humanoid = char:FindFirstChild("Humanoid")
+    local currentTool = char:FindFirstChildOfClass("Tool")
 
     local weaponType = State.SelectWeapon or "Melee"
-
-    local priority = {
-        [weaponType] = true
-    }
 
     local function GetWeaponType(tool)
         if tool.ToolTip then
@@ -1792,6 +1789,10 @@ function EquipTool()
         if string.find(tool.Name, "Sword") then return "Sword" end
 
         return "Melee"
+    end
+
+    if currentTool and GetWeaponType(currentTool) == weaponType then
+        return
     end
 
     local selectedTool = nil
@@ -1810,44 +1811,50 @@ function EquipTool()
         end
     end
 
+    if currentTool then
+        humanoid:UnequipTools()
+        task.wait()
+    end
+
     if selectedTool then
-        char.Humanoid:EquipTool(selectedTool)
+        humanoid:EquipTool(selectedTool)
     elseif fallbackTool then
-        char.Humanoid:EquipTool(fallbackTool)
+        humanoid:EquipTool(fallbackTool)
     end
 end
 
 function AttackWeapon()
     pcall(function()
-        local char = game.Players.LocalPlayer.Character
-        local root = char and char:FindFirstChild("HumanoidRootPart")
-        local tool = char and char:FindFirstChildOfClass("Tool")
-        
+        local player = game.Players.LocalPlayer
+        local char = player.Character
+        if not char then return end
+
+        local root = char:FindFirstChild("HumanoidRootPart")
+        local tool = char:FindFirstChildOfClass("Tool")
         if not root or not tool then return end
 
         local targetList = {}
-        local allEnemies = game:GetService("Workspace").Enemies:GetChildren()
-        
-        for _, enemy in pairs(allEnemies) do
+        local enemiesFolder = workspace:FindFirstChild("Enemies")
+        if not enemiesFolder then return end
+
+        for _, enemy in pairs(enemiesFolder:GetChildren()) do
             local eRoot = enemy:FindFirstChild("HumanoidRootPart")
             local eHum = enemy:FindFirstChild("Humanoid")
+
             if eRoot and eHum and eHum.Health > 0 then
-                if (root.Position - eRoot.Position).Magnitude < 70 then
-                    table.insert(targetList, eRoot)
+                local distance = (root.Position - eRoot.Position).Magnitude
+                if distance < 60 then
+                    table.insert(targetList, enemy)
                 end
             end
         end
 
         if #targetList > 0 then
-            local ReplicatedStorage = game:GetService("ReplicatedStorage")
-            local NetPath = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Net")
-            local RegisterAttack = NetPath:WaitForChild("RE/RegisterAttack")
-            local RegisterHit = NetPath:WaitForChild("RE/RegisterHit")
+            local Net = game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Net")
 
-            RegisterAttack:FireServer(1e-9)
-            
-            RegisterHit:FireServer(tool, targetList)
-            
+            Net.RegisterAttack:FireServer(0)
+            Net.RegisterHit:FireServer(tool, targetList)
+
             tool:Activate()
         end
     end)
@@ -2038,7 +2045,7 @@ CreateToggle(TabFarm, "Tự Động Farm Level", 35, "AutoFarmLevel", function(s
     end)
 end)
 
-CreateToggle(TabFarm, "Tự Động Farm Rương & Đổi Server", 85, "AutoChestFarm", function(state)
+CreateToggle(TabFarm, "Tự Động Farm Rương", 85, "AutoChestFarm", function(state)
     State.AutoChestFarm = state
     
     if state then
@@ -2113,9 +2120,9 @@ local function ApplyFruitESP(part, name)
     end)
 end
 
-CreateLabel(TabRaidFruitFruit, "Trái Ác Quỷ", 5) 
+CreateLabel(TabRaidFruit, "Trái Ác Quỷ", 5) 
 
-CreateToggle(TabRaidFruitFruit, "Tự Động Random Trái Ác Quỷ", 35, "AutoGacha", function(state)
+CreateToggle(TabRaidFruit, "Tự Động Random Trái Ác Quỷ", 35, "AutoGacha", function(state)
     State.AutoGacha = state
     task.spawn(function()
         while State.AutoGacha do
@@ -2125,7 +2132,7 @@ CreateToggle(TabRaidFruitFruit, "Tự Động Random Trái Ác Quỷ", 35, "Auto
     end)
 end)
 
-CreateToggle(TabRaidFruitFruit, "Tự Động Nhặt Trái", 85, "AutoPickUpFruit", function(state)
+CreateToggle(TabRaidFruit, "Tự Động Nhặt Trái", 85, "AutoPickUpFruit", function(state)
     State.AutoPickUpFruit = state
     State.FruitESP = state
     task.spawn(function()
@@ -2152,7 +2159,7 @@ CreateToggle(TabRaidFruitFruit, "Tự Động Nhặt Trái", 85, "AutoPickUpFrui
     end)
 end)
 
-CreateToggle(TabRaidFruitFruit, "Tự Động Lưu Trữ Trái", 115, "AutoStoreFruit", function(state)
+CreateToggle(TabRaidFruit, "Tự Động Lưu Trữ Trái", 115, "AutoStoreFruit", function(state)
     State.AutoStoreFruit = state
     if state then
         task.spawn(function()
@@ -2177,7 +2184,7 @@ CreateToggle(TabRaidFruitFruit, "Tự Động Lưu Trữ Trái", 115, "AutoStore
     end
 end)
 
-CreateToggle(TabRaidFruitFruit, "Tự Động Thả Trái", 155, "AutoDropFruit", function(state)
+CreateToggle(TabRaidFruit, "Tự Động Thả Trái", 155, "AutoDropFruit", function(state)
     State.AutoDropFruit = state
     if state then
         task.spawn(function()
@@ -2202,7 +2209,7 @@ CreateToggle(TabRaidFruitFruit, "Tự Động Thả Trái", 155, "AutoDropFruit"
     end
 end)
 
-CreateLabel(TabRaidFruitFruit, "Raid Trái Ác Quỷ", 195) 
+CreateLabel(TabRaidFruit, "Raid Trái Ác Quỷ", 195) 
 
 CreateDropdown(TabRaidFruit, "Chọn Chip Raid", 235, Chips, "SelectChip")
 
@@ -2241,7 +2248,7 @@ end)
 
 local IslandVisited = {}
 
-CreateToggle(TabRaidFruit, "Tự Động Farm Raid & Qua Đảo", 335, "AutoFarmRaid", function(state)
+CreateToggle(TabRaidFruit, "Tự Động Farm Raid + Qua Đảo", 335, "AutoFarmRaid", function(state)
     State.AutoFarmRaid = state
     
     if state then
