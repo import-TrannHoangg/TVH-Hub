@@ -2252,7 +2252,7 @@ CreateToggle(TabRaidFruit, "Tự Động Thả Trái", 155, "AutoDropFruit", fun
                     for _, item in ipairs(player.Backpack:GetChildren()) do
                         if item:IsA("Tool") and (item.Name:find("Fruit") or item:GetAttribute("FruitName")) then
                             local name = item:GetAttribute("FruitName") or item:GetAttribute("OriginalName") or item.Name
-                            game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("DropFruit", name)
+                            game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("DropFruit", name, item)
                         end
                     end
                 end)
@@ -2262,17 +2262,17 @@ CreateToggle(TabRaidFruit, "Tự Động Thả Trái", 155, "AutoDropFruit", fun
         player.Character.ChildAdded:Connect(function(item)
             if State.AutoDropFruit and item:IsA("Tool") and (item.Name:find("Fruit") or item:GetAttribute("FruitName")) then
                 local name = item:GetAttribute("FruitName") or item:GetAttribute("OriginalName") or item.Name
-                game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("DropFruit", name)
+                game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("DropFruit", name, item)
             end
         end)
     end
 end)
 
-CreateLabel(TabRaidFruit, "Raid Trái Ác Quỷ", 195) 
+CreateLabel(TabRaidFruit, "Raid Trái Ác Quỷ", 205) 
 
-CreateDropdown(TabRaidFruit, "Chọn Chip Raid", 225, Chips, "SelectChip")
+CreateDropdown(TabRaidFruit, "Chọn Chip Raid", 240, Chips, "SelectChip")
 
-CreateToggle(TabRaidFruit, "Tự Động Mua Chip", 265, "AutoBuyChip", function(state)
+CreateToggle(TabRaidFruit, "Tự Động Mua Chip", 280, "AutoBuyChip", function(state)
     State.AutoBuyChip = state
     task.spawn(function()
         while State.AutoBuyChip do
@@ -2284,7 +2284,7 @@ CreateToggle(TabRaidFruit, "Tự Động Mua Chip", 265, "AutoBuyChip", function
     end)
 end)
 
-CreateToggle(TabRaidFruit, "Tự Động Bắt Đầu Raid", 305, "AutoStartRaid", function(state)
+CreateToggle(TabRaidFruit, "Tự Động Bắt Đầu Raid", 360, "AutoStartRaid", function(state)
     State.AutoStartRaid = state
     task.spawn(function()
         while State.AutoStartRaid do
@@ -2307,7 +2307,7 @@ end)
 
 local IslandVisited = {}
 
-CreateToggle(TabRaidFruit, "Tự Động Farm Raid + Qua Đảo", 345, "AutoFarmRaid", function(state)
+CreateToggle(TabRaidFruit, "Tự Động Farm Raid + Qua Đảo", 400, "AutoFarmRaid", function(state)
     State.AutoFarmRaid = state
     
     if state then
@@ -2371,7 +2371,7 @@ CreateToggle(TabRaidFruit, "Tự Động Farm Raid + Qua Đảo", 345, "AutoFarm
     end
 end)
 
-CreateToggle(TabRaidFruit, "Tự Động Thức Tỉnh Chiêu", 385, "AutoAwakening", function(state)
+CreateToggle(TabRaidFruit, "Tự Động Thức Tỉnh Chiêu", 440, "AutoAwakening", function(state)
     State.AutoAwakening = state
     
     task.spawn(function()
@@ -2560,7 +2560,7 @@ CreateToggle(TabSettings, "Fix Lag Trên Điện Thoại", 155, "MobileMode", fu
     end
 end)
 
-CreateToggle(TabSettings, "Fix Lag Tối Ưu", 195, "FixLagMode", function(state)
+CreateToggle(TabSettings, "Fix Lag Tối Ưu", 205, "FixLagMode", function(state)
     task.spawn(function()
         while State.FixLagMode do
             local fps = math.floor(1 / RunService.RenderStepped:Wait())
@@ -2579,7 +2579,7 @@ end)
 
 local AntiBanConnections = {}
 
-CreateToggle(TabSettings, "Anti Ban", 225, "AntiBan", function(state)
+CreateToggle(TabSettings, "Anti Ban", 235, "AntiBan", function(state)
     if not State.AntiBan then
         for _, conn in pairs(AntiBanConnections) do
             if conn then conn:Disconnect() end
@@ -2621,7 +2621,7 @@ CreateToggle(TabSettings, "Anti Ban", 225, "AntiBan", function(state)
     end)
 end)
 
-CreateToggle(TabSettings, "Anti AFK", 265, "AntiAFK", function(state)
+CreateToggle(TabSettings, "Anti AFK", 275, "AntiAFK", function(state)
     if not state then return end
 
     local vu = game:GetService("VirtualUser")
@@ -2635,7 +2635,7 @@ CreateToggle(TabSettings, "Anti AFK", 265, "AntiAFK", function(state)
     end)
 end)
 
-CreateButton(TabSettings, "Nhập Tất Cả Code", 305, function()
+CreateButton(TabSettings, "Nhập Tất Cả Code", 315, function()
     task.spawn(function()
         for _, code in pairs(AllCodes) do
             pcall(function()
