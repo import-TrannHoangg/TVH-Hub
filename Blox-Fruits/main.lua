@@ -142,9 +142,13 @@ local function AnimateIcon()
 end
 AnimateIcon()
 
-local MainGui = Instance.new("ScreenGui", PlayerGui)
+local MainGui = Instance.new("ScreenGui")
 MainGui.Name = "TVH_MainGui"
 MainGui.ResetOnSpawn = false
+MainGui.IgnoreGuiInset = true
+MainGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+MainGui.DisplayOrder = 100
+MainGui.Parent = game.CoreGui
 
 local Main = Instance.new("Frame", MainGui)
 Main.Size = UDim2.new(0, 580, 0, 400)
@@ -1711,26 +1715,39 @@ local function Stabilize()
 end
 
 local TweenSpeed = 340
+local FlyHeight = 80
 
 function Tween(targetCFrame)
     if not targetCFrame then return end
 
     local player = game.Players.LocalPlayer
     local char = player.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    if not char then return end
 
-    local hrp = char.HumanoidRootPart
-    local distance = (targetCFrame.Position - hrp.Position).Magnitude
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
 
-    if distance < 2 then
-        hrp.CFrame = targetCFrame
+    local safeCFrame = targetCFrame * CFrame.new(0, FlyHeight, 0)
+
+    local distance = (safeCFrame.Position - hrp.Position).Magnitude
+
+    if distance < 5 then
+        hrp.CFrame = safeCFrame
         return
+    end
+
+    if not hrp:FindFirstChild("FlyLock") then
+        local bv = Instance.new("BodyVelocity")
+        bv.Name = "FlyLock"
+        bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+        bv.Velocity = Vector3.new(0, 0, 0)
+        bv.Parent = hrp
     end
 
     local tween = game:GetService("TweenService"):Create(
         hrp,
         TweenInfo.new(distance / TweenSpeed, Enum.EasingStyle.Linear),
-        {CFrame = targetCFrame}
+        {CFrame = safeCFrame}
     )
 
     tween:Play()
@@ -1743,6 +1760,9 @@ function Tween(targetCFrame)
             end
             task.wait()
         end
+
+        local fly = hrp:FindFirstChild("FlyLock")
+        if fly then fly:Destroy() end
     end)
 end
 
@@ -1766,6 +1786,11 @@ function GetTarget()
     end
 
     return closestMob
+end
+
+local function FaceTarget(root, targetPos)
+    local look = CFrame.new(root.Position, targetPos)
+    root.CFrame = root.CFrame:Lerp(look, 0.2)
 end
 
 function EquipTool()
@@ -1823,107 +1848,58 @@ function EquipTool()
     end
 end
 
-local CombatFrameworkR, RigControllerR
-local CombatFramework, RigController
-
-task.spawn(function()
-    local Player = game:GetService("Players").LocalPlayer
-    local PlayerScripts = Player:WaitForChild("PlayerScripts")
-    
-    local cf = PlayerScripts:FindFirstChild("CombatFramework")
-    local rc = PlayerScripts:FindFirstChild("CombatFramework"):FindFirstChild("RigController")
-    
-    if cf and rc then
-        CombatFramework = require(cf)
-        RigController = require(rc)
-        
-        pcall(function()
-            CombatFrameworkR = getupvalues(CombatFramework)[2]
-            RigControllerR = getupvalues(RigController)[2]
-        end)
-    else
-    end
-end)
-
-function getAllBladeHits(Sizes)
-    local Hits = {}
-    local Enemies = workspace:FindFirstChild("Enemies")
-    if not Enemies then return Hits end
-    
-    for _, v in pairs(Enemies:GetChildren()) do
-        local Human = v:FindFirstChildOfClass("Humanoid")
-        local Root = v:FindFirstChild("HumanoidRootPart")
-        if Human and Root and Human.Health > 0 then
-            local dist = (game.Players.LocalPlayer.Character.HumanoidRootPart.Position - Root.Position).Magnitude
-            if dist < Sizes + 5 then
-                table.insert(Hits, Root)
-            end
-        end
-    end
-    return Hits
-end
-
-function CurrentWeapon()
-    if not CombatFrameworkR then return end
-    local ac = CombatFrameworkR.activeController
-    if not ac or not ac.blades or not ac.blades[1] then 
-        local tool = game.Players.LocalPlayer.Character:FindFirstChildOfClass("Tool")
-        return tool and tool.Name or nil
-    end
-    
-    local ret = ac.blades[1]
-    pcall(function()
-        while ret.Parent ~= game.Players.LocalPlayer.Character do 
-            ret = ret.Parent 
-        end
-    end)
-    return ret
+local function HasWeapon()
+    return game.Players.LocalPlayer.Character:FindFirstChildOfClass("Tool") ~= nil
 end
 
 function AttackWeapon()
-    if not CombatFrameworkR or not CombatFrameworkR.activeController then return end
-    
-    local ac = CombatFrameworkR.activeController
-    if ac and ac.equipped then
-        local bladehit = getAllBladeHits(60)
-        if #bladehit > 0 then
-            local success = pcall(function()
-                local AcAttack8 = debug.getupvalue(ac.attack, 5)
-                local AcAttack9 = debug.getupvalue(ac.attack, 6)
-                local AcAttack7 = debug.getupvalue(ac.attack, 4)
-                local AcAttack10 = debug.getupvalue(ac.attack, 7)
-                
-                local NumberAc12 = (AcAttack8 * 798405 + AcAttack7 * 727595) % AcAttack9
-                local NumberAc13 = AcAttack7 * 798405
-                
-                NumberAc12 = (NumberAc12 * AcAttack9 + NumberAc13) % 1099511627776
-                AcAttack8 = math.floor(NumberAc12 / AcAttack9)
-                AcAttack7 = NumberAc12 - AcAttack8 * AcAttack9
-                AcAttack10 = AcAttack10 + 1
-                
-                debug.setupvalue(ac.attack, 5, AcAttack8)
-                debug.setupvalue(ac.attack, 6, AcAttack9)
-                debug.setupvalue(ac.attack, 4, AcAttack7)
-                debug.setupvalue(ac.attack, 7, AcAttack10)
-                
-                for _, v in pairs(ac.animator.anims.basic) do
-                    v:Play(0.01, 0.01, 0.01)
-                end                 
-                
-                if ac.blades and ac.blades[1] then 
-                    game:GetService("ReplicatedStorage").RigControllerEvent:FireServer("weaponChange", tostring(CurrentWeapon()))
-                    game.ReplicatedStorage.Remotes.Validator:FireServer(math.floor(NumberAc12 / 1099511627776 * 16777215), AcAttack10)
-                    game:GetService("ReplicatedStorage").RigControllerEvent:FireServer("hit", bladehit, 2, "") 
-                end
-            end)
+    local player = game.Players.LocalPlayer
+    local char = player.Character
+    if not char then return end
+
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+
+    local targets = {}
+    local myPos = root.Position
+
+    local function addTarget(model)
+        local hum = model:FindFirstChildOfClass("Humanoid")
+        local hrp = model:FindFirstChild("HumanoidRootPart")
+        if not hum or not hrp or hum.Health <= 0 then return end
+
+        local offset = hrp.Position - myPos
+        if math.abs(offset.Y) > 60 then return end
+        if offset.Magnitude > 80 then return end
+
+        targets[#targets+1] = hrp
+    end
+
+    for _, enemy in ipairs(workspace.Enemies:GetChildren()) do
+        addTarget(enemy)
+    end
+
+    for _, plrChar in ipairs(workspace.Characters:GetChildren()) do
+        if plrChar ~= char then
+            local plr = game.Players:GetPlayerFromCharacter(plrChar)
+            if plr and plr.Team ~= player.Team then
+                addTarget(plrChar)
+            end
         end
+    end
+
+    if #targets > 0 then
+        game:GetService("ReplicatedStorage")
+            :WaitForChild("Remotes")
+            :WaitForChild("BladeHits")
+            :FireServer(targets, 120)
     end
 end
 
 function AutoNear()
     pcall(function()
         local FAST_DELAY = 0.1
-        local ATTACK_RANGE = 5000 
+        local 80 = 5000 
         local BRING_MOB_RADIUS = 300
         
         for _, mob in pairs(game.Workspace.Enemies:GetChildren()) do
@@ -1932,12 +1908,12 @@ function AutoNear()
                 local root = game.Players.LocalPlayer.Character.HumanoidRootPart
                 local mobRoot = mob.HumanoidRootPart
                 
-                if (root.Position - mobRoot.Position).Magnitude <= ATTACK_RANGE then
+                if (root.Position - mobRoot.Position).Magnitude <= 80 then
                     
                     repeat
                         task.wait(FAST_DELAY)
                         
-                        AttackNoCoolDown()
+                        AttackWeapon()
                         AutoHaki()
                         EquipTool() 
                         
@@ -2083,10 +2059,15 @@ CreateToggle(TabFarm, "Tự Động Farm Level", 35, "AutoFarmLevel", function(s
                         bv.Velocity = Vector3.new(0, 0, 0)
                     end
 
+                    FaceTarget(root, target.HumanoidRootPart.Position)
                     root.CFrame = target.HumanoidRootPart.CFrame * CFrame.new(0, 11, 0)
 
                     BringMob(NameMon, target.HumanoidRootPart.CFrame)
                     EquipTool()
+                    if not HasWeapon() then
+                        EquipTool()
+                        return
+                    end
                     AutoHaki()
                     AttackWeapon()
                 else
@@ -2105,7 +2086,7 @@ CreateToggle(TabFarm, "Tự Động Farm Level", 35, "AutoFarmLevel", function(s
     end)
 end)
 
-CreateToggle(TabFarm, "Tự Động Farm Rương", 85, "AutoChestFarm", function(state)
+CreateToggle(TabFarm, "Tự Động Farm Rương", 75, "AutoChestFarm", function(state)
     State.AutoChestFarm = state
     
     if state then
@@ -2192,7 +2173,7 @@ CreateToggle(TabRaidFruit, "Tự Động Random Trái Ác Quỷ", 35, "AutoGacha
     end)
 end)
 
-CreateToggle(TabRaidFruit, "Tự Động Nhặt Trái", 85, "AutoPickUpFruit", function(state)
+CreateToggle(TabRaidFruit, "Tự Động Nhặt Trái", 75, "AutoPickUpFruit", function(state)
     State.AutoPickUpFruit = state
     State.FruitESP = state
     task.spawn(function()
@@ -2271,9 +2252,9 @@ end)
 
 CreateLabel(TabRaidFruit, "Raid Trái Ác Quỷ", 195) 
 
-CreateDropdown(TabRaidFruit, "Chọn Chip Raid", 235, Chips, "SelectChip")
+CreateDropdown(TabRaidFruit, "Chọn Chip Raid", 225, Chips, "SelectChip")
 
-CreateToggle(TabRaidFruit, "Tự Động Mua Chip", 255, "AutoBuyChip", function(state)
+CreateToggle(TabRaidFruit, "Tự Động Mua Chip", 265, "AutoBuyChip", function(state)
     State.AutoBuyChip = state
     task.spawn(function()
         while State.AutoBuyChip do
@@ -2285,7 +2266,7 @@ CreateToggle(TabRaidFruit, "Tự Động Mua Chip", 255, "AutoBuyChip", function
     end)
 end)
 
-CreateToggle(TabRaidFruit, "Tự Động Bắt Đầu Raid", 295, "AutoStartRaid", function(state)
+CreateToggle(TabRaidFruit, "Tự Động Bắt Đầu Raid", 305, "AutoStartRaid", function(state)
     State.AutoStartRaid = state
     task.spawn(function()
         while State.AutoStartRaid do
@@ -2308,7 +2289,7 @@ end)
 
 local IslandVisited = {}
 
-CreateToggle(TabRaidFruit, "Tự Động Farm Raid + Qua Đảo", 335, "AutoFarmRaid", function(state)
+CreateToggle(TabRaidFruit, "Tự Động Farm Raid + Qua Đảo", 345, "AutoFarmRaid", function(state)
     State.AutoFarmRaid = state
     
     if state then
@@ -2372,7 +2353,7 @@ CreateToggle(TabRaidFruit, "Tự Động Farm Raid + Qua Đảo", 335, "AutoFarm
     end
 end)
 
-CreateToggle(TabRaidFruit, "Tự Động Thức Tỉnh Chiêu", 355, "AutoAwakening", function(state)
+CreateToggle(TabRaidFruit, "Tự Động Thức Tỉnh Chiêu", 385, "AutoAwakening", function(state)
     State.AutoAwakening = state
     
     task.spawn(function()
@@ -2385,7 +2366,7 @@ CreateToggle(TabRaidFruit, "Tự Động Thức Tỉnh Chiêu", 355, "AutoAwaken
     end)
 end)
 
-CreateToggle(TabRaidFruit, "Lấy Trái Cùi Dưới 1 Triệu Beli", 395, "GetFruitLow", function(state)
+CreateToggle(TabRaidFruit, "Lấy Trái Cùi Dưới 1 Triệu Beli", 425, "GetFruitLow", function(state)
     State.GetFruitLow = state
     task.spawn(function()
         while State.GetFruitLow do
@@ -2399,7 +2380,7 @@ CreateToggle(TabRaidFruit, "Lấy Trái Cùi Dưới 1 Triệu Beli", 395, "GetF
     end)
 end)
 
-CreateButton(TabRaidFruit, "Bay Đến Phòng Để Raid", 435, function()
+CreateButton(TabRaidFruit, "Bay Đến Phòng Để Raid", 465, function()
     if Second_Sea then
         Tween(CFrame.new(-6438.73, 250.64, -4501.50))
     elseif Third_Sea then
@@ -2412,7 +2393,7 @@ end)
 CreateLabel(TabSettings, "Cài Đặt", 5) 
 CreateDropdown(TabSettings, "Chọn Vũ Khí", 35, {"Melee", "Sword", "Blox Fruit"}, "SelectWeapon")
 
-CreateToggle(TabSettings, "FPS Boost", 85, "FPSBoost", function(state)
+CreateToggle(TabSettings, "FPS Boost", 75, "FPSBoost", function(state)
     if state then
         Lighting.GlobalShadows = false
         Lighting.FogEnd = 9e9
@@ -2489,7 +2470,7 @@ end)
 
 local AntiBanConnections = {}
 
-CreateToggle(TabSettings, "Anti Ban", 235, "AntiBan", function(state)
+CreateToggle(TabSettings, "Anti Ban", 225, "AntiBan", function(state)
     if not State.AntiBan then
         for _, conn in pairs(AntiBanConnections) do
             if conn then conn:Disconnect() end
@@ -2531,7 +2512,7 @@ CreateToggle(TabSettings, "Anti Ban", 235, "AntiBan", function(state)
     end)
 end)
 
-CreateToggle(TabSettings, "Anti AFK", 285, "AntiAFK", function(state)
+CreateToggle(TabSettings, "Anti AFK", 265, "AntiAFK", function(state)
     if not state then return end
 
     local vu = game:GetService("VirtualUser")
@@ -2545,7 +2526,7 @@ CreateToggle(TabSettings, "Anti AFK", 285, "AntiAFK", function(state)
     end)
 end)
 
-CreateButton(TabSettings, "Nhập Tất Cả Code", 315, function()
+CreateButton(TabSettings, "Nhập Tất Cả Code", 305, function()
     task.spawn(function()
         for _, code in pairs(AllCodes) do
             pcall(function()
