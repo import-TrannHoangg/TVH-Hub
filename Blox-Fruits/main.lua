@@ -72,7 +72,7 @@ local TabIcons = {
     ["Tab Câu Cá"] = "rbxassetid://117464735534300",
     ["Tab Sự Kiện Sea"] = "rbxassetid://96594171535657",
     ["Tab Raid/Trái"] = "rbxassetid://117786143421965",
-    ["Tab Chỉ Số"] = "rbxassetid://1131983014082260",
+    ["Tab Chỉ Số"] = "rbxassetid://131983014082260",
     ["Tab Dịch Chuyển"] = "rbxassetid://83054494283840",
     ["Tab Trạng Thái"] = "rbxassetid://86375240234504",
     ["Tab Thị Giác"] = "rbxassetid://137611999012404",
@@ -1853,89 +1853,111 @@ local function HasWeapon()
 end
 
 function AttackWeapon()
-    local player = game.Players.LocalPlayer
+    local player = Players.LocalPlayer
     local char = player.Character
     if not char then return end
 
     local root = char:FindFirstChild("HumanoidRootPart")
     if not root then return end
 
-    local targets = {}
-    local myPos = root.Position
+    local CombatFramework = require(player.PlayerScripts.CombatFramework)
+    local controller = CombatFramework.activeController
+    if not controller then return end
 
-    local function addTarget(model)
-        local hum = model:FindFirstChildOfClass("Humanoid")
+    local horizontalRange = 40
+    local verticalRange = 120
+
+    local targets = {}
+
+    local function checkTarget(model)
+        local hum = model:FindFirstChild("Humanoid")
         local hrp = model:FindFirstChild("HumanoidRootPart")
         if not hum or not hrp or hum.Health <= 0 then return end
 
-        local offset = hrp.Position - myPos
-        if math.abs(offset.Y) > 60 then return end
-        if offset.Magnitude > 80 then return end
+        local offset = hrp.Position - root.Position
+        local horizontalDist = Vector3.new(offset.X, 0, offset.Z).Magnitude
+        local verticalDist = math.abs(offset.Y)
 
-        targets[#targets+1] = hrp
-    end
-
-    for _, enemy in ipairs(workspace.Enemies:GetChildren()) do
-        addTarget(enemy)
-    end
-
-    for _, plrChar in ipairs(workspace.Characters:GetChildren()) do
-        if plrChar ~= char then
-            local plr = game.Players:GetPlayerFromCharacter(plrChar)
-            if plr and plr.Team ~= player.Team then
-                addTarget(plrChar)
-            end
+        if horizontalDist <= horizontalRange and verticalDist <= verticalRange then
+            table.insert(targets, hrp)
         end
     end
 
-    if #targets > 0 then
-        game:GetService("ReplicatedStorage")
-            :WaitForChild("Remotes")
-            :WaitForChild("BladeHits")
-            :FireServer(targets, 120)
+    for _, enemy in pairs(workspace.Enemies:GetChildren()) do
+        checkTarget(enemy)
+    end
+
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= player and plr.Character then
+            checkTarget(plr.Character)
+        end
+    end
+
+    if #targets == 0 then return end
+
+    controller.hitboxMagnitude = horizontalRange
+    controller.timeToNextAttack = 0
+    controller.increment = 4
+    controller.attackTargets = targets
+
+    for _, hrp in pairs(targets) do
+        ReplicatedStorage.RigControllerEvent:FireServer(
+            "hit",
+            hrp,
+            hrp.Position
+        )
     end
 end
 
 function AutoNear()
     pcall(function()
         for _, mob in pairs(game.Workspace.Enemies:GetChildren()) do
-            if mob:FindFirstChild("Humanoid") and mob:FindFirstChild("HumanoidRootPart") and mob.Humanoid.Health > 0 then
+            if mob:FindFirstChild("Humanoid")
+            and mob:FindFirstChild("HumanoidRootPart")
+            and mob.Humanoid.Health > 0 then
                 
-                local root = game.Players.LocalPlayer.Character.HumanoidRootPart
+                local playerRoot = game.Players.LocalPlayer.Character.HumanoidRootPart
                 local mobRoot = mob.HumanoidRootPart
                 
-                if (root.Position - mobRoot.Position).Magnitude <= 5000 then
+                if (playerRoot.Position - mobRoot.Position).Magnitude <= 5000 then
                     
                     repeat
-                        task.wait(0.1)
-                        
+                        task.wait(_G.Fast_Delay or 0.1)
+
                         AttackWeapon()
                         AutoHaki()
-                        EquipTool() 
-                        
+                        EquipTool(SelectWeapon)
+
                         local farmCFrame = mobRoot.CFrame
                         Tween(farmCFrame * (Pos or CFrame.new(0, 11, 0)))
-                        
+
                         for _, nearbyMob in pairs(game.Workspace.Enemies:GetChildren()) do
-                            if nearbyMob:FindFirstChild("HumanoidRootPart") and nearbyMob.Humanoid.Health > 0 then
+                            if nearbyMob:FindFirstChild("HumanoidRootPart")
+                            and nearbyMob:FindFirstChild("Humanoid")
+                            and nearbyMob.Humanoid.Health > 0 then
+                                
                                 if (nearbyMob.HumanoidRootPart.Position - farmCFrame.Position).Magnitude < 300 then
                                     nearbyMob.HumanoidRootPart.CanCollide = false
                                     nearbyMob.HumanoidRootPart.CFrame = farmCFrame * CFrame.new(0, 0, 0.1)
                                 end
                             end
                         end
-                        
+
                         if mobRoot.Size ~= Vector3.new(60, 60, 60) then
                             mobRoot.Size = Vector3.new(60, 60, 60)
                             mobRoot.Transparency = 1
                             mobRoot.CanCollide = false
                             mob.Humanoid.WalkSpeed = 0
+                            mob.Humanoid.JumpPower = 0
                         end
-                        
-                    until not State.AutoNear 
-                    or not mob.Parent 
-                    or mob.Humanoid.Health <= 0 
-                    or not game.Workspace.Enemies:FindFirstChild(mob.Name)
+
+                        FarmPos = mobRoot.CFrame
+                        MonFarm = mob.Name
+
+                    until not State.AutoNear
+                        or not mob.Parent
+                        or mob.Humanoid.Health <= 0
+                        or not game.Workspace.Enemies:FindFirstChild(mob.Name)
                 end
             end
             
@@ -2384,6 +2406,97 @@ CreateButton(TabRaidFruit, "Bay Đến Phòng Để Raid", 465, function()
         task.wait(0.1)
         Tween(CFrame.new(-5017.4, 314.8, -2823.0))
     end
+end)
+
+CreateLabel(TabStats, "Điểm Chỉ Số", 5) 
+CreateToggle(TabStats, "Tự Động Nâng Điểm Chỉ Số Melee", 35, "AutoStatsMelee", function(state)
+    State.AutoStatsMelee = state
+
+    task.spawn(function()
+        while State.AutoStatsMelee do
+            task.wait(0.5)
+            pcall(function()
+                local player = game.Players.LocalPlayer
+                local data = player:FindFirstChild("Data")
+                local points = data and data:FindFirstChild("Points")
+                if not points or points.Value <= 0 then return end
+
+                game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("AddPoint", "Melee", 1)
+            end)
+        end
+    end)
+end)
+
+CreateToggle(TabStats, "Tự Động Nâng Điểm Chỉ Số Phòng Thủ", 115, "AutoStatsDefense", function(state)
+    State.AutoStatsDefense = state
+
+    task.spawn(function()
+        while State.AutoStatsDefense do
+            task.wait(0.5)
+            pcall(function()
+                local player = game.Players.LocalPlayer
+                local data = player:FindFirstChild("Data")
+                local points = data and data:FindFirstChild("Points")
+                if not points or points.Value <= 0 then return end
+
+                game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("AddPoint", "Defense", 1)
+            end)
+        end
+    end)
+end)
+
+CreateToggle(TabStats, "Tự Động Nâng Điểm Chỉ Số Kiếm", 155, "AutoStatsSword", function(state)
+    State.AutoStatsSword = state
+
+    task.spawn(function()
+        while State.AutoStatsSword do
+            task.wait(0.5)
+            pcall(function()
+                local player = game.Players.LocalPlayer
+                local data = player:FindFirstChild("Data")
+                local points = data and data:FindFirstChild("Points")
+                if not points or points.Value <= 0 then return end
+
+                game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("AddPoint", "Sword", 1)
+            end)
+        end
+    end)
+end)
+
+CreateToggle(TabStats, "Tự Động Nâng Điểm Chỉ Số Súng", 195, "AutoStatsGun", function(state)
+    State.AutoStatsGun = state
+
+    task.spawn(function()
+        while State.AutoStatsGun do
+            task.wait(0.5)
+            pcall(function()
+                local player = game.Players.LocalPlayer
+                local data = player:FindFirstChild("Data")
+                local points = data and data:FindFirstChild("Points")
+                if not points or points.Value <= 0 then return end
+
+                game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("AddPoint", "Gun", 1)
+            end)
+        end
+    end)
+end)
+
+CreateToggle(TabStats, "Tự Động Nâng Điểm Chỉ Số Trái", 225, "AutoStatsFruit", function(state)
+    State.AutoStatsFruit = state
+
+    task.spawn(function()
+        while State.AutoStatsFruit do
+            task.wait(0.5)
+            pcall(function()
+                local player = game.Players.LocalPlayer
+                local data = player:FindFirstChild("Data")
+                local points = data and data:FindFirstChild("Points")
+                if not points or points.Value <= 0 then return end
+
+                game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("AddPoint", "Demon Fruit", 1)
+            end)
+        end
+    end)
 end)
 
 CreateLabel(TabSettings, "Cài Đặt", 5) 
