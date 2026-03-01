@@ -1824,40 +1824,15 @@ function EquipTool()
 end
 
 function AttackWeapon()
-    pcall(function()
-        local player = game.Players.LocalPlayer
-        local char = player.Character
-        if not char then return end
+    local char = game.Players.LocalPlayer.Character
+    if not char then return end
 
-        local root = char:FindFirstChild("HumanoidRootPart")
-        local tool = char:FindFirstChildOfClass("Tool")
-        if not root or not tool then return end
+    local tool = char:FindFirstChildOfClass("Tool")
+    if not tool then return end
 
-        local targetList = {}
-        local enemiesFolder = workspace:FindFirstChild("Enemies")
-        if not enemiesFolder then return end
-
-        for _, enemy in pairs(enemiesFolder:GetChildren()) do
-            local eRoot = enemy:FindFirstChild("HumanoidRootPart")
-            local eHum = enemy:FindFirstChild("Humanoid")
-
-            if eRoot and eHum and eHum.Health > 0 then
-                local distance = (root.Position - eRoot.Position).Magnitude
-                if distance < 60 then
-                    table.insert(targetList, enemy)
-                end
-            end
-        end
-
-        if #targetList > 0 then
-            local Net = game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Net")
-
-            Net.RegisterAttack:FireServer(0)
-            Net.RegisterHit:FireServer(tool, targetList)
-
-            tool:Activate()
-        end
-    end)
+    for i = 1, 3 do
+        tool:Activate()
+    end
 end
 
 function AutoNear()
