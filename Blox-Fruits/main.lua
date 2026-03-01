@@ -1898,20 +1898,16 @@ end
 
 function AutoNear()
     pcall(function()
-        local FAST_DELAY = 0.1
-        local 80 = 5000 
-        local BRING_MOB_RADIUS = 300
-        
         for _, mob in pairs(game.Workspace.Enemies:GetChildren()) do
             if mob:FindFirstChild("Humanoid") and mob:FindFirstChild("HumanoidRootPart") and mob.Humanoid.Health > 0 then
                 
                 local root = game.Players.LocalPlayer.Character.HumanoidRootPart
                 local mobRoot = mob.HumanoidRootPart
                 
-                if (root.Position - mobRoot.Position).Magnitude <= 80 then
+                if (root.Position - mobRoot.Position).Magnitude <= 5000 then
                     
                     repeat
-                        task.wait(FAST_DELAY)
+                        task.wait(0.1)
                         
                         AttackWeapon()
                         AutoHaki()
@@ -1922,7 +1918,7 @@ function AutoNear()
                         
                         for _, nearbyMob in pairs(game.Workspace.Enemies:GetChildren()) do
                             if nearbyMob:FindFirstChild("HumanoidRootPart") and nearbyMob.Humanoid.Health > 0 then
-                                if (nearbyMob.HumanoidRootPart.Position - farmCFrame.Position).Magnitude < BRING_MOB_RADIUS then
+                                if (nearbyMob.HumanoidRootPart.Position - farmCFrame.Position).Magnitude < 300 then
                                     nearbyMob.HumanoidRootPart.CanCollide = false
                                     nearbyMob.HumanoidRootPart.CFrame = farmCFrame * CFrame.new(0, 0, 0.1)
                                 end
