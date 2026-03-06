@@ -21,7 +21,6 @@ local RegisterAttack = Net["RE/RegisterAttack"]
 local RegisterHit = Net["RE/RegisterHit"]
 local LocalPlayer = Players.LocalPlayer
 local Enemies = workspace.Enemies
-local RootPart = GetCharacter():WaitForChild("HumanoidRootPart")
 
 if getgenv().Settings.JoinTeam then
     local args = {
@@ -1861,6 +1860,8 @@ end
 local function GetCharacter()
     return LocalPlayer.Character or (LocalPlayer.CharacterAdded:wait() and LocalPlayer.Character)
 end
+
+local RootPart = GetCharacter():WaitForChild("HumanoidRootPart")
 
 local function GetSessionID()
     local SendHitsToServer = getrenv()._G.SendHitsToServer
