@@ -16,6 +16,12 @@ local HttpService = game:GetService("HttpService")
 local UIS = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local player = Players.LocalPlayer
+local Net = ReplicatedStorage.Modules.Net
+local RegisterAttack = Net["RE/RegisterAttack"]
+local RegisterHit = Net["RE/RegisterHit"]
+local LocalPlayer = Players.LocalPlayer
+local Enemies = workspace.Enemies
+local RootPart = GetCharacter():WaitForChild("HumanoidRootPart")
 
 if getgenv().Settings.JoinTeam then
     local args = {
@@ -1852,60 +1858,45 @@ local function HasWeapon()
     return game.Players.LocalPlayer.Character:FindFirstChildOfClass("Tool") ~= nil
 end
 
-function AttackWeapon()
-    local player = Players.LocalPlayer
-    local char = player.Character
-    if not char then return end
+local function GetCharacter()
+    return LocalPlayer.Character or (LocalPlayer.CharacterAdded:wait() and LocalPlayer.Character)
+end
 
-    local root = char:FindFirstChild("HumanoidRootPart")
-    if not root then return end
+local function GetSessionID()
+    local SendHitsToServer = getrenv()._G.SendHitsToServer
+    local CombatThread = getupvalues(SendHitsToServer)[1]
+    local UserIDSlice = tostring(LocalPlayer.UserId):sub(2, 4)
+    local MemorySlice = tostring(CombatThread):sub(11, 15)
+    local SessionID = UserIDSlice .. MemorySlice
 
-    local CombatFramework = require(player.PlayerScripts.CombatFramework)
-    local controller = CombatFramework.activeController
-    if not controller then return end
+    return SessionID
+end
 
-    local horizontalRange = 40
-    local verticalRange = 120
+local function AttackWeapon(TargetCharacter)
+    RegisterAttack:FireServer(0.5)
+    task.wait()
+    local dataTable = {
+        TargetCharacter:WaitForChild("RightLowerLeg"),
+        {},
+        nil,
+        GetSessionID()
+    }
+    RegisterHit:FireServer(unpack(dataTable))
+end
 
-    local targets = {}
-
-    local function checkTarget(model)
-        local hum = model:FindFirstChild("Humanoid")
-        local hrp = model:FindFirstChild("HumanoidRootPart")
-        if not hum or not hrp or hum.Health <= 0 then return end
-
-        local offset = hrp.Position - root.Position
-        local horizontalDist = Vector3.new(offset.X, 0, offset.Z).Magnitude
-        local verticalDist = math.abs(offset.Y)
-
-        if horizontalDist <= horizontalRange and verticalDist <= verticalRange then
-            table.insert(targets, hrp)
+while task.wait() do
+    for i, Enemy in pairs(Enemies:GetChildren()) do
+        if Enemy.Name == TargetName and Enemy:FindFirstChild("Humanoid") and Enemy.Humanoid.Health > 0 then
+            local TargetRootPart = Enemy:FindFirstChild("HumanoidRootPart")
+            if TargetRootPart then
+                repeat task.wait()
+                    RootPart.CFrame = CFrame.new(TargetRootPart.Position) * CFrame.new(0, 57, 0)
+                    RootPart.Velocity = Vector3.zero
+                    task.wait()
+                    AttackWeapon(Enemy)
+                until Enemy.Humanoid.Health == 0
+            end
         end
-    end
-
-    for _, enemy in pairs(workspace.Enemies:GetChildren()) do
-        checkTarget(enemy)
-    end
-
-    for _, plr in pairs(Players:GetPlayers()) do
-        if plr ~= player and plr.Character then
-            checkTarget(plr.Character)
-        end
-    end
-
-    if #targets == 0 then return end
-
-    controller.hitboxMagnitude = horizontalRange
-    controller.timeToNextAttack = 0
-    controller.increment = 4
-    controller.attackTargets = targets
-
-    for _, hrp in pairs(targets) do
-        ReplicatedStorage.RigControllerEvent:FireServer(
-            "hit",
-            hrp,
-            hrp.Position
-        )
     end
 end
 
@@ -1924,7 +1915,7 @@ function AutoNear()
                     repeat
                         task.wait(_G.Fast_Delay or 0.1)
 
-                        AttackWeapon()
+                        AttackWeapon(mob)
                         AutoHaki()
                         EquipTool(SelectWeapon)
 
@@ -2086,8 +2077,9 @@ CreateToggle(TabFarm, "Tự Động Farm Level", 35, "AutoFarmLevel", function(s
                         EquipTool()
                         return
                     end
+                    
                     AutoHaki()
-                    AttackWeapon()
+                    AttackWeapon(target)
                 else
                     if root:FindFirstChild("VelocityLock") then 
                         root.VelocityLock:Destroy() 
