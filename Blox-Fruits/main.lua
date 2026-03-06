@@ -79,7 +79,7 @@ local TabIcons = {
     ["Tab Raid/Trái"] = "rbxassetid://117786143421965",
     ["Tab Chỉ Số"] = "rbxassetid://131983014082260",
     ["Tab Dịch Chuyển"] = "rbxassetid://83054494283840",
-    ["Tab Trạng Thái"] = "rbxassetid://86375240234504",
+    ["Tab Trạng Thái"] = "rbxassetid://131983014082260",
     ["Tab Thị Giác"] = "rbxassetid://137611999012404",
     ["Tab Cửa Hàng"] = "rbxassetid://91250120807261",
     ["Tab Cài Đặt"] = "rbxassetid://70767352650956"
@@ -2070,7 +2070,10 @@ CreateToggle(TabFarm, "Tự Động Farm Level", 35, "AutoFarmLevel", function(s
                     end
 
                     FaceTarget(root, target.HumanoidRootPart.Position)
-                    root.CFrame = target.HumanoidRootPart.CFrame * CFrame.new(0, 11, 0)
+                    local hrp = target:FindFirstChild("HumanoidRootPart")
+                    if hrp then
+                        root.CFrame = hrp.CFrame * CFrame.new(0,11,0)
+                    end
 
                     BringMob(NameMon, target.HumanoidRootPart.CFrame)
                     EquipTool()
