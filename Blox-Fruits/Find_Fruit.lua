@@ -380,7 +380,9 @@ local function HandleAutoStore(tool)
         task.spawn(function()
             ReplicatedStorage.Remotes.CommF_:InvokeServer("StoreFruit", tool:GetAttribute("OriginalName"), tool)
         end)
+        return true
     end
+    return false
 end
 
 local function StartFruitFinder()
