@@ -2,7 +2,7 @@ if not game:IsLoaded() then
     game.Loaded:Wait()
 end
 
-getgenv().Settings = {
+getgenv().Settings = getgenv().Settings or {
     JoinTeam = true,
     Team = "Pirates"
 }
@@ -14,11 +14,26 @@ local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
 local LocalPlayer = Players.LocalPlayer
 
+local function GetCommF()
+    local Remotes = ReplicatedStorage:FindFirstChild("Remotes")
+    if Remotes then
+        return Remotes:FindFirstChild("CommF_")
+    end
+end
+
+local function JoinTeam()
+    local CommF = GetCommF()
+    if not CommF then return end
+
+    if LocalPlayer.Team == nil then
+        pcall(function()
+            CommF:InvokeServer("SetTeam", getgenv().Settings.Team)
+        end)
+    end
+end
+
 if getgenv().Settings.JoinTeam then
-    local args = {
-        getgenv().Settings.Team
-    }
-    ReplicatedStorage.Remotes.CommF_:InvokeServer("SetTeam", unpack(args))
+    JoinTeam()
 end
 
 local Config = {
