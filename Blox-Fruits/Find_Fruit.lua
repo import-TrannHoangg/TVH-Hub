@@ -111,8 +111,7 @@ end
 local function GetAllFruits()
     local fruits = {}
 
-    for _, v in pairs(workspace:GetDescendants()) do
-        
+    for _, v in pairs(workspace:GetDescendants()) do        
         if v:IsA("Tool") and v.Name:find("Fruit") then
             table.insert(fruits, v)
 
@@ -120,9 +119,7 @@ local function GetAllFruits()
             table.insert(fruits, v)
 
         end
-
     end
-
     return fruits
 end
 
@@ -132,24 +129,29 @@ local function CollectItem(item)
     local char = LocalPlayer.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") then return false end
 
+    local ancestor = item:FindFirstAncestorOfClass("Model")
+    if ancestor and Players:FindFirstChild(ancestor.Name) then
+        return false
+    end
+
     if item:IsA("Tool") then
         local handle = item:FindFirstChild("Handle")
         if handle then
             handle.CFrame = char.HumanoidRootPart.CFrame
-            task.wait(0.3)
-            return not item:IsDescendantOf(workspace)
+            task.wait(0.4)
+
+            return item.Parent == char or item.Parent == LocalPlayer.Backpack
         end
 
     elseif item:IsA("Model") then
         local basePart = item:FindFirstChildWhichIsA("BasePart")
         if basePart then
-            for i = 1, 20 do
-                char.HumanoidRootPart.CFrame = basePart.CFrame + Vector3.new(0,3,0)
-                task.wait(0.1)
-                if not item:IsDescendantOf(workspace) then
-                    return true
-                end
-            end
+            char.HumanoidRootPart.CFrame = basePart.CFrame + Vector3.new(0,3,0)
+            task.wait(0.4)
+
+            return not item:IsDescendantOf(workspace)
+                or item.Parent == char
+                or item.Parent == LocalPlayer.Backpack
         end
     end
 
@@ -377,10 +379,17 @@ end
 
 local function HandleAutoStore(tool)
     if Config.Main.AutoStoreFruit and tool:IsA("Tool") and tool.Name:find("Fruit") then
-        task.spawn(function()
+        local oldParent = tool.Parent
+        
+        pcall(function()
             ReplicatedStorage.Remotes.CommF_:InvokeServer("StoreFruit", tool:GetAttribute("OriginalName"), tool)
         end)
-        return true
+
+        task.wait(0.5)
+
+        if tool.Parent ~= oldParent then
+            return true
+        end
     end
     return false
 end
@@ -389,6 +398,8 @@ local function StartFruitFinder()
     local ui = CreateUI()
     local lastServerHop = tick()
     local collecting = false
+    local LastFruit = nil
+    local LastDetectTime = 0
     
     while task.wait(1) do
         if Config.Main.AutoFruit and not collecting then
@@ -398,10 +409,19 @@ local function StartFruitFinder()
                 
                 for _, v in ipairs(workspace:GetDescendants()) do
                     
-                    local isTool = v:IsA("Tool") and (v.Name:lower():find("fruit") or v.Name:find("Trái"))
+                    local isTool = v:IsA("Tool") and (v.Name:lower():find("fruit") or v.Name:lower():find("trái"))
                     local isSpawn = v:IsA("Model") and (v.Name == "Fruit" or v.Name == "fruit")
 
-                    if isTool or isSpawn then
+                    local isInPlayer = false
+                    local ancestor = v:FindFirstAncestorOfClass("Model")
+                    if ancestor and Players:FindFirstChild(ancestor.Name) then
+                        isInPlayer = true
+                    end
+                    if v:IsDescendantOf(LocalPlayer.Character) then
+                        isInPlayer = true
+                    end
+
+                    if (isTool or isSpawn) and not isInPlayer then
                         foundFruit = true
                         collecting = true
 
@@ -412,7 +432,11 @@ local function StartFruitFinder()
                             ApplyFruitESP(part, name)
                         end
 
-                        ui.updateStatus("Tìm Thấy Trái " .. name)
+                        if v ~= LastFruit or tick() - LastDetectTime > 3 then
+                            LastFruit = v
+                            LastDetectTime = tick()
+                            ui.updateStatus("Tìm Thấy Trái " .. name)
+                        end
 
                         if CollectItem(v) then
                             collected = true
@@ -423,6 +447,10 @@ local function StartFruitFinder()
                         break
                     end
                     
+                end
+
+                if LastFruit and not LastFruit:IsDescendantOf(workspace) then
+                    LastFruit = nil
                 end
                 
                 if collected and Config.Main.AutoStoreFruit then
@@ -437,7 +465,7 @@ local function StartFruitFinder()
 
                     for _, item in ipairs(inventory) do
                         if item:IsA("Tool") and (item.Name:find("Fruit") or item.Name:find("Trái")) then
-                            ui.updateStatus("Đang Cất Trái " .. item.Name)
+                            ui.updateStatus("Đang Lưu Trữ Trái " .. item.Name)
                             
                             local success = HandleAutoStore(item)
                             
@@ -450,9 +478,9 @@ local function StartFruitFinder()
                     end
 
                     if hasStoredAnything then
-                        ui.updateStatus("Hoàn Tất Việc Lưu Trữ Trái !")
+                        ui.updateStatus("Đã Lưu Trữ Trái Thành Công !")
                     else
-                        ui.updateStatus("Không Cất Được Trái Nào Do Rương Đầy !")
+                        ui.updateStatus("Không Lưu Trữ Được Trái (Do Đầy Kho Hoặc Lỗi)")
                     end
                     task.wait(1)
                 end
