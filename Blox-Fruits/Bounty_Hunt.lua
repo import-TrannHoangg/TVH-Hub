@@ -319,7 +319,7 @@ spawn(function()
                         local Dis = math.floor((game.Players.LocalPlayer.Character.HumanoidRootPart.Position - v.Character.HumanoidRootPart.Position).Magnitude)
                         v.Character.HumanoidRootPart:FindFirstChild("PlayerESP").TextLabel.Text = v.DisplayName.."\n\n"..Dis.." M."
                         if v.Team == game.Players.LocalPlayer.Team then
-                            v.Character.HumanoidRootPart:FindFirstChild("PlayerESP").TextLabel.TextColor3 = Color3.new(255,0,0)
+                            v.Character.HumanoidRootPart:FindFirstChild("PlayerESP").TextLabel.TextColor3 = Color3.fromRGB(255,0,0)
                         else
                             v.Character.HumanoidRootPart:FindFirstChild("PlayerESP").TextLabel.TextColor3 = Color3.new(0,255,0)
                            end
